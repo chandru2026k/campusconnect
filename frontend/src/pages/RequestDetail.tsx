@@ -39,16 +39,20 @@ export default function RequestDetailView() {
         
         // Connect STOMP
         const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:8080/ws';
-        const socket = new SockJS(wsUrl);
         const stompClient = new Client({
-            webSocketFactory: () => socket,
+            // VERY IMPORTANT: Must return a NEW instance every time it connects/reconnects
+            webSocketFactory: () => new SockJS(wsUrl),
+            debug: (str) => console.log('STOMP: ', str),
             onConnect: () => {
+                console.log('STOMP connected!');
                 stompClient.subscribe(`/topic/request/${id}`, (msg) => {
                     const newMsg = JSON.parse(msg.body);
                     setMessages(prev => [...prev, newMsg]);
                 });
             },
-            onStompError: (err) => console.error(err)
+            onStompError: (err) => console.error('STOMP Error:', err),
+            onWebSocketError: (err) => console.error('WS Error:', err),
+            onWebSocketClose: () => console.log('WS closed')
         });
         
         stompClient.activate();
