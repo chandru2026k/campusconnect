@@ -50,13 +50,19 @@ export default function Dashboard() {
             return;
         }
         try {
-            await api.post('/requests', newReq);
+            // Backend requires a deadlineAt field. Set it to 2 hours from now.
+            const deadlineDate = new Date();
+            deadlineDate.setHours(deadlineDate.getHours() + 2);
+            const payload = { ...newReq, deadlineAt: deadlineDate.toISOString() };
+
+            await api.post('/requests', payload);
             setShowForm(false);
             setNewReq({ category: 'FOOD', title: '', description: '', locationHint: 'MAIN_GATE', isEmergency: false });
             setAgreed(false);
             fetchRequests();
         } catch (e) {
             console.error('Failed to create request', e);
+            alert('Failed to post request. Please try again.');
         }
     };
 
