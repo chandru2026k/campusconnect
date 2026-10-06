@@ -50,7 +50,7 @@ export default function Profile() {
             
             <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8">
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 h-fit">
-                    <h2 className="text-2xl font-bold mb-6">My Profile</h2>
+                    <h2 className="text-2xl font-bold mb-6">Hello, {user?.name || 'User'}!</h2>
                     <form onSubmit={handleSave} className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>

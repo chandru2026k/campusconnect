@@ -96,7 +96,7 @@ export default function Dashboard() {
                         </div>
                         <div className="flex items-center gap-4">
                             <div className="hidden sm:flex flex-col items-end">
-                                <span className="text-sm font-semibold text-gray-700">{user?.email}</span>
+                                <span className="text-sm font-semibold text-gray-700">{user?.name || user?.email}</span>
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full mt-0.5">
                                     {user?.role.replace('_', ' ')}
                                 </span>
