@@ -32,6 +32,7 @@ export default function RequestDetailView() {
     const [chatInput, setChatInput] = useState('');
     const [rating, setRating] = useState({ stars: 5, comment: '' });
     
+    const [isConnected, setIsConnected] = useState(false);
     const stompClientRef = useRef<Client | null>(null);
 
     useEffect(() => {
@@ -42,17 +43,23 @@ export default function RequestDetailView() {
         const stompClient = new Client({
             // VERY IMPORTANT: Must return a NEW instance every time it connects/reconnects
             webSocketFactory: () => new SockJS(wsUrl),
+            reconnectDelay: 5000,
             debug: (str) => console.log('STOMP: ', str),
             onConnect: () => {
                 console.log('STOMP connected!');
+                setIsConnected(true);
                 stompClient.subscribe(`/topic/request/${id}`, (msg) => {
                     const newMsg = JSON.parse(msg.body);
                     setMessages(prev => [...prev, newMsg]);
                 });
             },
+            onDisconnect: () => setIsConnected(false),
             onStompError: (err) => console.error('STOMP Error:', err),
             onWebSocketError: (err) => console.error('WS Error:', err),
-            onWebSocketClose: () => console.log('WS closed')
+            onWebSocketClose: () => {
+                console.log('WS closed');
+                setIsConnected(false);
+            }
         });
         
         stompClient.activate();
@@ -206,8 +213,8 @@ export default function RequestDetailView() {
                         )}
                     </div>
                     <form onSubmit={sendMsg} className="p-3 border-t bg-white flex rounded-b-lg">
-                        <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} disabled={['OPEN', 'CONFIRMED', 'RATED'].includes(req.status)} placeholder={req.status === 'OPEN' ? "Waiting for volunteer..." : "Type a message..."} className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed" />
-                        <button type="submit" disabled={['OPEN', 'CONFIRMED', 'RATED'].includes(req.status)} className="bg-blue-600 text-white px-4 rounded-r-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">Send</button>
+                        <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} disabled={!isConnected || ['OPEN', 'CONFIRMED', 'RATED'].includes(req.status)} placeholder={!isConnected ? "Reconnecting to chat..." : req.status === 'OPEN' ? "Waiting for volunteer..." : "Type a message..."} className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed" />
+                        <button type="submit" disabled={!isConnected || ['OPEN', 'CONFIRMED', 'RATED'].includes(req.status)} className="bg-blue-600 text-white px-4 rounded-r-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">Send</button>
                     </form>
                 </div>
             </div>
