@@ -86,6 +86,16 @@ export default function RequestDetailView() {
         }
     };
 
+    const handleDelete = async () => {
+        if (!window.confirm('Are you sure you want to delete this request?')) return;
+        try {
+            await api.delete(`/requests/${id}`);
+            navigate('/');
+        } catch (e) {
+            alert('Error deleting request');
+        }
+    };
+
     const handleRate = async () => {
         try {
             // Rater is current user. Ratee is the other party.
@@ -129,6 +139,9 @@ export default function RequestDetailView() {
                         <div className="border-t pt-4">
                             <h3 className="font-semibold text-gray-800 mb-2">Actions</h3>
                             <div className="flex flex-wrap gap-2">
+                                {req.status === 'OPEN' && isRequester && (
+                                    <button onClick={handleDelete} className="bg-red-600 text-white px-4 py-2 rounded">Delete Request</button>
+                                )}
                                 {req.status === 'OPEN' && isVolunteer && (
                                     <button onClick={() => handleStatus('ACCEPTED')} className="bg-green-600 text-white px-4 py-2 rounded">Accept Request</button>
                                 )}

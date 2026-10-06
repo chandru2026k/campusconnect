@@ -38,6 +38,17 @@ public class RequestService {
         requestRepository.save(request);
     }
 
+    public void deleteRequest(Long requestId, Long userId) {
+        Request request = getRequest(requestId);
+        if (!request.getRequester().getId().equals(userId)) {
+            throw new RuntimeException("Unauthorized: You can only delete your own requests");
+        }
+        if (request.getStatus() != RequestStatus.OPEN) {
+            throw new RuntimeException("Cannot delete request because it is already accepted or in progress");
+        }
+        requestRepository.delete(request);
+    }
+
     public void validateTransition(RequestStatus current, RequestStatus target) {
         boolean isValid = switch (current) {
             case OPEN -> target == RequestStatus.ACCEPTED || target == RequestStatus.CANCELLED;
