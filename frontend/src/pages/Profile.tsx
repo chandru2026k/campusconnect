@@ -34,8 +34,9 @@ export default function Profile() {
             const res = await api.patch('/users/me', { name, hostelId });
             localStorage.setItem('user', JSON.stringify(res.data));
             window.location.reload(); 
-        } catch (e) {
-            alert('Failed to update profile');
+        } catch (e: any) {
+            console.error(e);
+            alert('Failed to update profile: ' + (typeof e.response?.data === 'string' ? e.response?.data : e.message));
         }
     };
 
