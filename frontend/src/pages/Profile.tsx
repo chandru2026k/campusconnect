@@ -32,9 +32,8 @@ export default function Profile() {
         e.preventDefault();
         try {
             const res = await api.patch('/users/me', { name, hostelId });
-            // Update auth context user
             localStorage.setItem('user', JSON.stringify(res.data));
-            window.location.reload(); // Quick way to sync state for prototype
+            window.location.reload(); 
         } catch (e) {
             alert('Failed to update profile');
         }
@@ -47,7 +46,6 @@ export default function Profile() {
             <button onClick={() => navigate('/dashboard')} className="mb-4 text-blue-600 font-semibold">&larr; Back to Dashboard</button>
             
             <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8">
-                {/* Profile Edit */}
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 h-fit">
                     <h2 className="text-2xl font-bold mb-6">My Profile</h2>
                     <form onSubmit={handleSave} className="space-y-4">
@@ -75,14 +73,12 @@ export default function Profile() {
                     </form>
                 </div>
 
-                {/* Connections */}
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                     <h2 className="text-2xl font-bold mb-2">My Connections</h2>
                     <p className="text-sm text-gray-500 mb-6">People you've successfully completed deliveries with.</p>
                     
                     {connections.length === 0 ? (
                         <div className="text-center py-8 text-gray-400">
-                            <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                             <p>No connections yet.</p>
                             <p className="text-xs mt-1">Complete a request to connect!</p>
                         </div>
@@ -96,7 +92,7 @@ export default function Profile() {
                                         </div>
                                         <div>
                                             <p className="font-semibold text-gray-800">{c.name}</p>
-                                            <p className="text-xs text-gray-500">{c.role === 'DAY_SCHOLAR' ? 'Day Scholar' : 'Hosteller'} • ? {c.reputationScore}</p>
+                                            <p className="text-xs text-gray-500">{c.role === 'DAY_SCHOLAR' ? 'Day Scholar' : 'Hosteller'} - Rating: {c.reputationScore}</p>
                                         </div>
                                     </div>
                                     <a href={`mailto:${c.email}`} className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 bg-blue-50 rounded-full">Message</a>
@@ -109,5 +105,3 @@ export default function Profile() {
         </div>
     );
 }
-
-
