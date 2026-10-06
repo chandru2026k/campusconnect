@@ -30,7 +30,7 @@ public class RatingService {
             throw new IllegalArgumentException("Stars must be between 1 and 5");
         }
 
-        requestService.updateStatus(requestId, RequestStatus.RATED, raterId);
+        requestService.updateStatus(requestId, RequestStatus.RATED, raterId, null);
 
         User rater = userRepository.findById(raterId).orElseThrow();
         User ratee = userRepository.findById(rateeId).orElseThrow();

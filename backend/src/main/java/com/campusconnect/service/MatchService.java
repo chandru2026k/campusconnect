@@ -31,7 +31,7 @@ public class MatchService {
         }
 
         // Will throw exception if not OPEN
-        requestService.updateStatus(requestId, RequestStatus.ACCEPTED, volunteerId);
+        requestService.updateStatus(requestId, RequestStatus.ACCEPTED, volunteerId, null);
 
         Match match = Match.builder()
                 .request(request)
