@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface RequestRepository extends JpaRepository<Request, Long> {
+    java.util.List<Request> findByStatusAndDeadlineAtBefore(com.campusconnect.domain.RequestStatus status, java.time.LocalDateTime deadline);
 }

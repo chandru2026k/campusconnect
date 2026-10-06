@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import { Client } from '@stomp/stompjs';
@@ -108,7 +109,7 @@ export default function RequestDetailView() {
             }
             fetchDetails();
         } catch (e: any) {
-            alert('Error updating status: ' + (e.response?.data || e.message));
+            toast.error('Error updating status: ' + (e.response?.data || e.message));
         }
     };
 
@@ -118,7 +119,7 @@ export default function RequestDetailView() {
             await api.delete(`/requests/${id}`);
             navigate('/');
         } catch (e) {
-            alert('Error deleting request');
+            toast.error('Error deleting request');
         }
     };
 
@@ -129,7 +130,7 @@ export default function RequestDetailView() {
             await api.post('/ratings', { requestId: Number(id), rateeId, stars: rating.stars, comment: rating.comment });
             fetchDetails();
         } catch (e) {
-            alert('Error submitting rating');
+            toast.error('Error submitting rating');
         }
     };
 

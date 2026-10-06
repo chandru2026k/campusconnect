@@ -64,4 +64,8 @@ public class UserService {
         user.setAccountStatus(AccountStatus.SUSPENDED);
         userRepository.save(user);
     }
+
+    public List<User> getTopScholars() {
+        return userRepository.findTop10ByRoleOrderByReputationScoreDesc(Role.DAY_SCHOLAR);
+    }
 }

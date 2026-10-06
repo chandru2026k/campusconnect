@@ -46,4 +46,9 @@ public class UserController {
     public ResponseEntity<?> getMyConnections(@AuthenticationPrincipal UserDetailsImpl userDetails) {
         return ResponseEntity.ok(userService.getConnections(userDetails.getUser().getId()));
     }
+
+    @GetMapping("/leaderboard")
+    public ResponseEntity<?> getLeaderboard() {
+        return ResponseEntity.ok(userService.getTopScholars());
+    }
 }

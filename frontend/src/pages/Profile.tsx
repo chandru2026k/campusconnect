@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -38,7 +39,7 @@ export default function Profile() {
             console.error(e);
             let errMsg = e.response?.data?.message || e.response?.data || e.message || 'Unknown error';
             if (typeof errMsg === 'object') errMsg = JSON.stringify(errMsg);
-            alert('Failed to update profile: ' + errMsg);
+            toast.error('Failed to update profile: ' + errMsg);
         }
     };
 

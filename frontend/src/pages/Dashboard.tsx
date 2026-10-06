@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 
@@ -24,6 +25,7 @@ export default function Dashboard() {
     const [categoryFilter, setCategoryFilter] = useState('');
     const [locationFilter, setLocationFilter] = useState('');
     const [emergencyFilter, setEmergencyFilter] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
 
     // New Request Form State
     const [showForm, setShowForm] = useState(false);
@@ -68,7 +70,7 @@ export default function Dashboard() {
             await api.delete(`/requests/${id}`);
             fetchRequests();
         } catch (e) {
-            alert('Error deleting request');
+            toast.error('Error deleting request');
         }
     };
 
@@ -77,6 +79,10 @@ export default function Dashboard() {
         if (categoryFilter && r.category !== categoryFilter) return false;
         if (locationFilter && r.locationHint !== locationFilter) return false;
         if (emergencyFilter && !r.isEmergency) return false;
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            if (!r.title.toLowerCase().includes(q) && !r.description?.toLowerCase().includes(q)) return false;
+        }
         return true;
     });
 
@@ -102,6 +108,7 @@ export default function Dashboard() {
                                 </span>
                             </div>
                             <button onClick={() => navigate('/profile')} className="ml-4 text-sm font-medium text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg transition-colors border border-gray-200 hover:border-gray-300 bg-white">My Profile</button>
+                              <button onClick={() => navigate('/leaderboard')} className="ml-2 text-sm font-medium text-indigo-600 hover:text-indigo-900 px-4 py-2 rounded-lg transition-colors border border-indigo-200 hover:border-indigo-300 bg-indigo-50">Top Scholars</button>
                             <button onClick={logout} className="ml-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors border border-transparent hover:border-red-100">
                                 Log Out
                             </button>
@@ -116,6 +123,10 @@ export default function Dashboard() {
                     
                     {/* LEFT SIDEBAR (Actions & Filters) */}
                     <div className="lg:col-span-1 space-y-6">
+                        <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-gray-900/5">
+                            <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Search Requests</label>
+                            <input type="text" placeholder="Search titles or descriptions..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border-0 ring-1 ring-inset ring-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-600" />
+                        </div>
                         
                         {/* NEW REQUEST PANEL */}
                         {user?.role === 'HOSTEL_STUDENT' && (

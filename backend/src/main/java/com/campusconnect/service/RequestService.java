@@ -14,6 +14,15 @@ public class RequestService {
     @Autowired
     private RequestRepository requestRepository;
 
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 60000)
+    public void expireOldRequests() {
+        List<Request> expired = requestRepository.findByStatusAndDeadlineAtBefore(RequestStatus.OPEN, java.time.LocalDateTime.now());
+        for (Request req : expired) {
+            req.setStatus(RequestStatus.EXPIRED);
+            requestRepository.save(req);
+        }
+    }
+
     public Request createRequest(Request request) {
         request.setStatus(RequestStatus.OPEN);
         if (request.getDeadlineAt() == null) {
@@ -62,12 +71,12 @@ public class RequestService {
 
     public void validateTransition(RequestStatus current, RequestStatus target) {
         boolean isValid = switch (current) {
-            case OPEN -> target == RequestStatus.ACCEPTED || target == RequestStatus.CANCELLED;
+            case OPEN -> target == RequestStatus.ACCEPTED || target == RequestStatus.CANCELLED || target == RequestStatus.EXPIRED;
             case ACCEPTED -> target == RequestStatus.IN_PROGRESS || target == RequestStatus.DISPUTED;
             case IN_PROGRESS -> target == RequestStatus.DELIVERED || target == RequestStatus.DISPUTED;
             case DELIVERED -> target == RequestStatus.CONFIRMED || target == RequestStatus.DISPUTED;
             case CONFIRMED -> target == RequestStatus.RATED || target == RequestStatus.DISPUTED;
-            case RATED, CANCELLED -> false; // Terminal states
+            case RATED, CANCELLED, EXPIRED -> false; // Terminal states
             case DISPUTED -> target == RequestStatus.CANCELLED || target == RequestStatus.CONFIRMED; // Admin resolution
         };
 
