@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 export default function Profile() {
-    const { user, login } = useAuth();
+    const { user } = useAuth();
     const navigate = useNavigate();
     
     const [name, setName] = useState('');
@@ -99,7 +99,7 @@ export default function Profile() {
                                             <p className="text-xs text-gray-500">{c.role === 'DAY_SCHOLAR' ? 'Day Scholar' : 'Hosteller'} • ? {c.reputationScore}</p>
                                         </div>
                                     </div>
-                                    <a href={mailto:} className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 bg-blue-50 rounded-full">Message</a>
+                                    <a href={`mailto:${c.email}`} className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 bg-blue-50 rounded-full">Message</a>
                                 </div>
                             ))}
                         </div>
@@ -109,3 +109,5 @@ export default function Profile() {
         </div>
     );
 }
+
+

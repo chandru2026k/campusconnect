@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 interface User {
     id: number;
     email: string;
+    name?: string;
+    hostelId?: string;
     role: string;
 }
 
@@ -55,3 +57,4 @@ export function useAuth() {
     }
     return context;
 }
+
