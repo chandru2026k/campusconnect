@@ -23,6 +23,9 @@ public class RequestController {
     @Autowired
     private MatchService matchService;
 
+    @Autowired
+    private com.campusconnect.service.MessageService messageService;
+
     @PostMapping
     public ResponseEntity<Request> createRequest(@RequestBody Request request, @AuthenticationPrincipal UserDetailsImpl userDetails) {
         request.setRequester(userDetails.getUser());
@@ -62,5 +65,11 @@ public class RequestController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    @GetMapping("/{id}/messages")
+    public ResponseEntity<?> getChatHistory(@PathVariable Long id) {
+        // Expose chat history via REST
+        return ResponseEntity.ok(messageService.getChatHistory(id));
     }
 }

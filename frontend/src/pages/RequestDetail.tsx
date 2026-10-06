@@ -68,6 +68,14 @@ export default function RequestDetailView() {
             const res = await api.get('/requests');
             const match = res.data.find((r: any) => r.id === Number(id));
             setReq(match);
+            
+            // Fetch chat history
+            try {
+                const msgsRes = await api.get(`/requests/${id}/messages`);
+                setMessages(msgsRes.data);
+            } catch (msgErr) {
+                console.error('Failed to fetch chat history', msgErr);
+            }
         } catch (e) {
             console.error(e);
         }
@@ -177,21 +185,29 @@ export default function RequestDetailView() {
                         <h3 className="font-bold text-gray-800">Live Chat</h3>
                     </div>
                     <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-gray-50">
-                        {messages.length === 0 ? <p className="text-gray-400 text-center text-sm mt-10">No messages yet. Say hi!</p> : null}
-                        {messages.map((m, i) => {
-                            const isMe = m.sender.id === user?.id;
-                            return (
-                                <div key={i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                                    <div className={`px-3 py-2 rounded-lg max-w-[85%] text-sm ${isMe ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
-                                        {m.body}
+                        {req.status === 'OPEN' ? (
+                            <div className="h-full flex flex-col items-center justify-center text-center px-4">
+                                <svg className="w-12 h-12 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                                <p className="text-gray-500 text-sm">Chat will become available once a volunteer accepts your request.</p>
+                            </div>
+                        ) : messages.length === 0 ? (
+                            <p className="text-gray-400 text-center text-sm mt-10">No messages yet. Say hi!</p>
+                        ) : (
+                            messages.map((m, i) => {
+                                const isMe = m.sender.id === user?.id;
+                                return (
+                                    <div key={i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                                        <div className={`px-3 py-2 rounded-lg max-w-[85%] text-sm ${isMe ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
+                                            {m.body}
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })
+                        )}
                     </div>
                     <form onSubmit={sendMsg} className="p-3 border-t bg-white flex rounded-b-lg">
-                        <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} disabled={['CONFIRMED', 'RATED'].includes(req.status)} placeholder="Type a message..." className="flex-1 px-3 py-2 border rounded-l-md focus:outline-none" />
-                        <button type="submit" disabled={['CONFIRMED', 'RATED'].includes(req.status)} className="bg-blue-600 text-white px-4 rounded-r-md">Send</button>
+                        <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} disabled={['OPEN', 'CONFIRMED', 'RATED'].includes(req.status)} placeholder={req.status === 'OPEN' ? "Waiting for volunteer..." : "Type a message..."} className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed" />
+                        <button type="submit" disabled={['OPEN', 'CONFIRMED', 'RATED'].includes(req.status)} className="bg-blue-600 text-white px-4 rounded-r-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">Send</button>
                     </form>
                 </div>
             </div>
