@@ -4,6 +4,7 @@ import Login from './pages/Auth/Login';
 import CompleteProfile from './pages/Auth/CompleteProfile';
 import Dashboard from './pages/Dashboard';
 import RequestDetailView from './pages/RequestDetail';
+import Profile from './pages/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
             </ProtectedRoute>
           } />
           
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Router>
@@ -39,3 +41,4 @@ function App() {
 }
 
 export default App;
+

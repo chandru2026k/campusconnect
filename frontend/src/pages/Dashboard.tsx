@@ -101,6 +101,7 @@ export default function Dashboard() {
                                     {user?.role.replace('_', ' ')}
                                 </span>
                             </div>
+                            <button onClick={() => navigate('/profile')} className="ml-4 text-sm font-medium text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg transition-colors border border-gray-200 hover:border-gray-300 bg-white">My Profile</button>
                             <button onClick={logout} className="ml-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors border border-transparent hover:border-red-100">
                                 Log Out
                             </button>

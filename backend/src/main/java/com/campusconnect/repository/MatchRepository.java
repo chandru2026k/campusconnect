@@ -9,4 +9,5 @@ import java.util.Optional;
 @Repository
 public interface MatchRepository extends JpaRepository<Match, Long> {
     Optional<Match> findByRequestId(Long requestId);
+    java.util.List<Match> findByRequestRequesterIdOrVolunteerId(Long requesterId, Long volunteerId);
 }
