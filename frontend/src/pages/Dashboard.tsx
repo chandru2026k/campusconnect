@@ -50,12 +50,7 @@ export default function Dashboard() {
             return;
         }
         try {
-            // Backend requires a deadlineAt field. Set it to 2 hours from now.
-            const deadlineDate = new Date();
-            deadlineDate.setHours(deadlineDate.getHours() + 2);
-            const payload = { ...newReq, deadlineAt: deadlineDate.toISOString() };
-
-            await api.post('/requests', payload);
+            await api.post('/requests', newReq);
             setShowForm(false);
             setNewReq({ category: 'FOOD', title: '', description: '', locationHint: 'MAIN_GATE', isEmergency: false });
             setAgreed(false);

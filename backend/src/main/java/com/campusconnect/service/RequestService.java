@@ -16,6 +16,9 @@ public class RequestService {
 
     public Request createRequest(Request request) {
         request.setStatus(RequestStatus.OPEN);
+        if (request.getDeadlineAt() == null) {
+            request.setDeadlineAt(java.time.LocalDateTime.now().plusHours(2));
+        }
         return requestRepository.save(request);
     }
 
