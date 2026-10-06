@@ -31,6 +31,13 @@ export default function RequestDetailView() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [chatInput, setChatInput] = useState('');
     const [rating, setRating] = useState({ stars: 5, comment: '' });
+    const [deliveryPin, setDeliveryPin] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (req && user?.id === req.requester.id && req.status !== 'OPEN') {
+            api.get(`/requests/${id}/pin`).then(res => setDeliveryPin(res.data.pin)).catch(e => console.error(e));
+        }
+    }, [req?.status, req?.requester.id, user?.id]);
     
     const [isConnected, setIsConnected] = useState(false);
     const stompClientRef = useRef<Client | null>(null);
@@ -92,12 +99,16 @@ export default function RequestDetailView() {
         try {
             if (status === 'ACCEPTED') {
                 await api.post(`/requests/${id}/accept`);
+            } else if (status === 'DELIVERED') {
+                const pin = window.prompt("Please enter the 4-digit Delivery PIN provided by the Hosteller:");
+                if (!pin) return; // cancelled
+                await api.patch(`/requests/${id}/status`, { status, pin });
             } else {
                 await api.patch(`/requests/${id}/status`, { status });
             }
             fetchDetails();
-        } catch (e) {
-            alert('Error updating status');
+        } catch (e: any) {
+            alert('Error updating status: ' + (e.response?.data || e.message));
         }
     };
 
@@ -150,6 +161,12 @@ export default function RequestDetailView() {
                             <span className="px-3 py-1 bg-blue-100 text-blue-800 font-bold rounded-full text-sm">{req.status}</span>
                         </div>
                         <p className="text-gray-700 mb-6">{req.description}</p>
+                        {deliveryPin && (
+                            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-md mb-6">
+                                <p className="font-bold">Delivery PIN: {deliveryPin}</p>
+                                <p className="text-sm">Share this PIN with the volunteer when they deliver your item.</p>
+                            </div>
+                        )}
                         
                         <div className="border-t pt-4">
                             <h3 className="font-semibold text-gray-800 mb-2">Actions</h3>
@@ -166,9 +183,7 @@ export default function RequestDetailView() {
                                 {req.status === 'IN_PROGRESS' && isVolunteer && (
                                     <button onClick={() => handleStatus('DELIVERED')} className="bg-yellow-500 text-white px-4 py-2 rounded">Mark Delivered</button>
                                 )}
-                                {req.status === 'DELIVERED' && isRequester && (
-                                    <button onClick={() => handleStatus('CONFIRMED')} className="bg-green-600 text-white px-4 py-2 rounded">Confirm Receipt</button>
-                                )}
+                                
                             </div>
                         </div>
                     </div>

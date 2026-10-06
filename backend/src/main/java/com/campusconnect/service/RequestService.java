@@ -19,6 +19,9 @@ public class RequestService {
         if (request.getDeadlineAt() == null) {
             request.setDeadlineAt(java.time.LocalDateTime.now().plusHours(2));
         }
+        if (request.getDeliveryPin() == null) {
+            request.setDeliveryPin(String.format("%04d", new java.util.Random().nextInt(10000)));
+        }
         return requestRepository.save(request);
     }
 
@@ -31,12 +34,17 @@ public class RequestService {
         return requestRepository.findAll();
     }
 
-    public void updateStatus(Long requestId, RequestStatus newStatus, Long userId) {
+    public void updateStatus(Long requestId, RequestStatus newStatus, Long userId, String pin) {
         Request request = getRequest(requestId);
         
         validateTransition(request.getStatus(), newStatus);
         
         // Basic authorization checks could go here (e.g. only volunteer can mark DELIVERED)
+        if (newStatus == RequestStatus.DELIVERED) {
+            if (pin == null || !pin.equals(request.getDeliveryPin())) {
+                throw new IllegalArgumentException("Invalid delivery PIN");
+            }
+        }
         request.setStatus(newStatus);
         requestRepository.save(request);
     }

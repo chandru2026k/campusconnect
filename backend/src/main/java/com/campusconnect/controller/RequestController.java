@@ -50,7 +50,8 @@ public class RequestController {
     public ResponseEntity<?> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> body, @AuthenticationPrincipal UserDetailsImpl userDetails) {
         try {
             RequestStatus status = RequestStatus.valueOf(body.get("status"));
-            requestService.updateStatus(id, status, userDetails.getUser().getId());
+            String pin = body.get("pin");
+            requestService.updateStatus(id, status, userDetails.getUser().getId(), pin);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -71,5 +72,13 @@ public class RequestController {
     public ResponseEntity<?> getChatHistory(@PathVariable Long id) {
         // Expose chat history via REST
         return ResponseEntity.ok(messageService.getChatHistory(id));
+    }
+    @GetMapping("/{id}/pin")
+    public ResponseEntity<?> getDeliveryPin(@PathVariable Long id, @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        Request req = requestService.getRequest(id);
+        if (req.getRequester().getId().equals(userDetails.getUser().getId())) {
+            return ResponseEntity.ok(Map.of("pin", req.getDeliveryPin()));
+        }
+        return ResponseEntity.status(403).body("Only requester can view the PIN");
     }
 }
