@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+const fs = require('fs');
+const content = import React, { useEffect, useState } from 'react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -31,14 +32,11 @@ export default function Profile() {
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const res = await api.post('/users/me/update', { name, hostelId });
+            const res = await api.patch('/users/me', { name, hostelId });
             localStorage.setItem('user', JSON.stringify(res.data));
             window.location.reload(); 
-        } catch (e: any) {
-            console.error(e);
-            let errMsg = e.response?.data?.message || e.response?.data || e.message || 'Unknown error';
-            if (typeof errMsg === 'object') errMsg = JSON.stringify(errMsg);
-            alert('Failed to update profile: ' + errMsg);
+        } catch (e) {
+            alert('Failed to update profile');
         }
     };
 
@@ -98,7 +96,7 @@ export default function Profile() {
                                             <p className="text-xs text-gray-500">{c.role === 'DAY_SCHOLAR' ? 'Day Scholar' : 'Hosteller'} - Rating: {c.reputationScore}</p>
                                         </div>
                                     </div>
-                                    <a href={`mailto:${c.email}`} className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 bg-blue-50 rounded-full">Message</a>
+                                    <a href={\mailto:\\} className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 bg-blue-50 rounded-full">Message</a>
                                 </div>
                             ))}
                         </div>
@@ -108,3 +106,5 @@ export default function Profile() {
         </div>
     );
 }
+;
+fs.writeFileSync('src/pages/Profile.tsx', content, 'utf8');

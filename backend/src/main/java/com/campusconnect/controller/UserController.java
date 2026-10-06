@@ -24,10 +24,20 @@ public class UserController {
 
     @PatchMapping("/me")
     public ResponseEntity<?> updateMyProfile(@AuthenticationPrincipal UserDetailsImpl userDetails, @RequestBody Map<String, String> body) {
+        return doUpdate(userDetails, body);
+    }
+
+    @PostMapping("/me/update")
+    public ResponseEntity<?> updateMyProfilePost(@AuthenticationPrincipal UserDetailsImpl userDetails, @RequestBody Map<String, String> body) {
+        return doUpdate(userDetails, body);
+    }
+
+    private ResponseEntity<?> doUpdate(UserDetailsImpl userDetails, Map<String, String> body) {
         try {
             User updated = userService.updateProfile(userDetails.getUser().getId(), body.get("name"), body.get("hostelId"));
             return ResponseEntity.ok(updated);
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
