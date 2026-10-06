@@ -12,7 +12,7 @@ interface RequestDetail {
     description: string;
     status: string;
     isEmergency: boolean;
-    requester: { id: number; name: string };
+    requester: { id: number; name: string; hostelId?: string; reputationScore?: number };
     volunteer?: { id: number; name: string };
 }
 
@@ -161,7 +161,8 @@ export default function RequestDetailView() {
                             <h1 className="text-2xl font-bold">{req.title}</h1>
                             <span className="px-3 py-1 bg-blue-100 text-blue-800 font-bold rounded-full text-sm">{req.status}</span>
                         </div>
-                        <p className="text-gray-700 mb-6">{req.description}</p>
+                        <div className="mb-4 flex items-center space-x-4 text-sm text-gray-600 border-b border-gray-100 pb-4"><div className="flex items-center gap-1.5"><svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg><span>Requested by: <span className="font-semibold text-gray-900">{req.requester?.name || "Student"}</span> {req.requester?.hostelId && <span className="bg-gray-100 px-2 py-0.5 rounded text-xs ml-1">Room {req.requester.hostelId}</span>}</span></div></div>
+                          <p className="text-gray-700 mb-6">{req.description}</p>
                         {deliveryPin && (
                             <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-md mb-6">
                                 <p className="font-bold">Delivery PIN: {deliveryPin}</p>

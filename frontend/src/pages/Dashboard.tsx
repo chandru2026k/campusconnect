@@ -12,7 +12,7 @@ interface RequestModel {
     isEmergency: boolean;
     status: string;
     locationHint: string;
-    requester: { id: number; name: string; role: string };
+    requester: { id: number; name: string; role: string; hostelId?: string };
 }
 
 export default function Dashboard() {
@@ -297,6 +297,7 @@ export default function Dashboard() {
                                             <h3 className="font-bold text-gray-900 text-lg mb-1.5 truncate group-hover:text-indigo-600 transition-colors" title={req.title}>{req.title}</h3>
                                             <p className="text-sm text-gray-600 line-clamp-2 mb-4 flex-grow leading-relaxed">{req.description}</p>
                                             
+                                            <div className="mb-3 text-xs text-gray-500 flex items-center gap-1.5"><svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg> <span>{req.requester?.name || "Student"} {req.requester?.hostelId ? `(${req.requester.hostelId})` : ""}</span></div>
                                             <div className="flex justify-between items-center text-xs font-medium text-gray-500 pt-4 mt-auto border-t border-gray-100">
                                                 <span className="inline-flex items-center gap-1.5 bg-gray-50 px-2.5 py-1.5 rounded-md text-gray-600 ring-1 ring-gray-900/5">
                                                     <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
