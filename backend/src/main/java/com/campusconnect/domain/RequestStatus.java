@@ -8,5 +8,6 @@ public enum RequestStatus {
     CONFIRMED,
     RATED,
     DISPUTED,
-    CANCELLED,`n    EXPIRED
+    CANCELLED,
+    EXPIRED
 }
