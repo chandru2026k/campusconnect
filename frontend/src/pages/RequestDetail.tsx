@@ -5,12 +5,16 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
+import Navbar from '../components/Navbar';
+import StatusBadge from '../components/StatusBadge';
 
 interface RequestDetail {
     id: number;
     title: string;
     description: string;
+    category: string;
     status: string;
+    locationHint: string;
     isEmergency: boolean;
     requester: { id: number; name: string; hostelId?: string; reputationScore?: number };
     volunteer?: { id: number; name: string };
@@ -33,28 +37,34 @@ export default function RequestDetailView() {
     const [chatInput, setChatInput] = useState('');
     const [rating, setRating] = useState({ stars: 5, comment: '' });
     const [deliveryPin, setDeliveryPin] = useState<string | null>(null);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [isConnected, setIsConnected] = useState(false);
+    
+    const stompClientRef = useRef<Client | null>(null);
+    const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+    // Auto-scroll chat to bottom on new messages
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
 
     useEffect(() => {
         if (req && user?.id === req.requester.id && req.status !== 'OPEN') {
-            api.get(`/requests/${id}/pin`).then(res => setDeliveryPin(res.data.pin)).catch(e => console.error(e));
+            api.get(`/requests/${id}/pin`)
+                .then(res => setDeliveryPin(res.data.pin))
+                .catch(e => console.error(e));
         }
-    }, [req?.status, req?.requester.id, user?.id]);
-    
-    const [isConnected, setIsConnected] = useState(false);
-    const stompClientRef = useRef<Client | null>(null);
+    }, [req?.status, req?.requester.id, user?.id, id]);
 
     useEffect(() => {
         fetchDetails();
         
-        // Connect STOMP
+        // Connect STOMP WebSocket
         const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:8080/ws';
         const stompClient = new Client({
-            // VERY IMPORTANT: Must return a NEW instance every time it connects/reconnects
             webSocketFactory: () => new SockJS(wsUrl),
             reconnectDelay: 5000,
-            debug: (str) => console.log('STOMP: ', str),
             onConnect: () => {
-                console.log('STOMP connected!');
                 setIsConnected(true);
                 stompClient.subscribe(`/topic/request/${id}`, (msg) => {
                     const newMsg = JSON.parse(msg.body);
@@ -64,10 +74,7 @@ export default function RequestDetailView() {
             onDisconnect: () => setIsConnected(false),
             onStompError: (err) => console.error('STOMP Error:', err),
             onWebSocketError: (err) => console.error('WS Error:', err),
-            onWebSocketClose: () => {
-                console.log('WS closed');
-                setIsConnected(false);
-            }
+            onWebSocketClose: () => setIsConnected(false),
         });
         
         stompClient.activate();
@@ -93,23 +100,33 @@ export default function RequestDetailView() {
             }
         } catch (e) {
             console.error(e);
+            toast.error('Failed to load request details');
         }
     };
 
     const handleStatus = async (status: string) => {
         try {
+            setActionLoading(true);
             if (status === 'ACCEPTED') {
                 await api.post(`/requests/${id}/accept`);
+                toast.success('You have accepted this delivery!');
             } else if (status === 'DELIVERED') {
-                const pin = window.prompt("Please enter the 4-digit Delivery PIN provided by the Hosteller:");
-                if (!pin) return; // cancelled
+                const pin = window.prompt("Enter the 4-digit Delivery PIN provided by the Hosteller:");
+                if (!pin) {
+                    setActionLoading(false);
+                    return;
+                }
                 await api.patch(`/requests/${id}/status`, { status, pin });
+                toast.success('Delivery completed and verified!');
             } else {
                 await api.patch(`/requests/${id}/status`, { status });
+                toast.success(`Status updated to ${status.replace('_', ' ')}`);
             }
             fetchDetails();
         } catch (e: any) {
-            toast.error('Error updating status: ' + (e.response?.data || e.message));
+            toast.error('Error updating status: ' + (e.response?.data?.message || e.response?.data || e.message));
+        } finally {
+            setActionLoading(false);
         }
     };
 
@@ -117,7 +134,8 @@ export default function RequestDetailView() {
         if (!window.confirm('Are you sure you want to delete this request?')) return;
         try {
             await api.delete(`/requests/${id}`);
-            navigate('/');
+            toast.success('Request deleted');
+            navigate('/dashboard');
         } catch (e) {
             toast.error('Error deleting request');
         }
@@ -125,9 +143,9 @@ export default function RequestDetailView() {
 
     const handleRate = async () => {
         try {
-            // Rater is current user. Ratee is the other party.
             const rateeId = user?.id === req?.requester.id ? req?.volunteer?.id : req?.requester.id;
             await api.post('/ratings', { requestId: Number(id), rateeId, stars: rating.stars, comment: rating.comment });
+            toast.success('Rating submitted. Thank you!');
             fetchDetails();
         } catch (e) {
             toast.error('Error submitting rating');
@@ -143,96 +161,269 @@ export default function RequestDetailView() {
         setChatInput('');
     };
 
-    if (!req) return <div className="p-8 text-center">Loading...</div>;
+    if (!req) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex flex-col">
+                <Navbar />
+                <div className="flex-1 flex items-center justify-center p-8 text-slate-500 font-semibold">
+                    <svg className="w-6 h-6 animate-spin text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Loading request...
+                </div>
+            </div>
+        );
+    }
 
     const isRequester = user?.id === req.requester.id;
-    // For prototype, volunteer ID isn't directly populated on Request via Match easily without an endpoint.
-    // Assuming Day Scholar is allowed to take action if they are DAY_SCHOLAR.
     const isVolunteer = user?.role === 'DAY_SCHOLAR' && !isRequester; 
-    
+
     return (
-        <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-            <button onClick={() => navigate(-1)} className="mb-4 text-blue-600 font-semibold">&larr; Back to Dashboard</button>
-            
-            <div className="grid lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-                <div className="lg:col-span-2 space-y-4">
-                    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <div className="flex justify-between items-start mb-4">
-                            <h1 className="text-2xl font-bold">{req.title}</h1>
-                            <span className="px-3 py-1 bg-blue-100 text-blue-800 font-bold rounded-full text-sm">{req.status}</span>
-                        </div>
-                        <div className="mb-4 flex items-center space-x-4 text-sm text-gray-600 border-b border-gray-100 pb-4"><div className="flex items-center gap-1.5"><svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg><span>Requested by: <span className="font-semibold text-gray-900">{req.requester?.name || "Student"}</span> {req.requester?.hostelId && <span className="bg-gray-100 px-2 py-0.5 rounded text-xs ml-1">Room {req.requester.hostelId}</span>}</span></div></div>
-                          <p className="text-gray-700 mb-6">{req.description}</p>
-                        {deliveryPin && (
-                            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-md mb-6">
-                                <p className="font-bold">Delivery PIN: {deliveryPin}</p>
-                                <p className="text-sm">Share this PIN with the volunteer when they deliver your item.</p>
-                            </div>
-                        )}
+        <div className="min-h-screen bg-slate-50/60 font-sans text-slate-900 pb-12">
+            <Navbar />
+
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                {/* Back Link */}
+                <button 
+                    onClick={() => navigate('/dashboard')} 
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-indigo-600 mb-6 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm transition"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Feed
+                </button>
+                
+                <div className="grid lg:grid-cols-3 gap-6">
+                    {/* LEFT 2 COLUMNS: REQUEST DETAILS & ACTIONS */}
+                    <div className="lg:col-span-2 space-y-6">
                         
-                        <div className="border-t pt-4">
-                            <h3 className="font-semibold text-gray-800 mb-2">Actions</h3>
-                            <div className="flex flex-wrap gap-2">
-                                {req.status === 'OPEN' && isRequester && (
-                                    <button onClick={handleDelete} className="bg-red-600 text-white px-4 py-2 rounded">Delete Request</button>
-                                )}
-                                {req.status === 'OPEN' && isVolunteer && (
-                                    <button onClick={() => handleStatus('ACCEPTED')} className="bg-green-600 text-white px-4 py-2 rounded">Accept Request</button>
-                                )}
-                                {req.status === 'ACCEPTED' && isVolunteer && (
-                                    <button onClick={() => handleStatus('IN_PROGRESS')} className="bg-blue-600 text-white px-4 py-2 rounded">Mark In-Progress</button>
-                                )}
-                                {req.status === 'IN_PROGRESS' && isVolunteer && (
-                                    <button onClick={() => handleStatus('DELIVERED')} className="bg-yellow-500 text-white px-4 py-2 rounded">Mark Delivered</button>
-                                )}
-                                
+                        <div className="bg-white rounded-2xl p-6 sm:p-7 shadow-sm border border-slate-200/80 relative overflow-hidden">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                                    {req.title}
+                                </h1>
+                                <StatusBadge status={req.status} isEmergency={req.isEmergency} />
                             </div>
-                        </div>
-                    </div>
 
-                    {req.status === 'CONFIRMED' && (
-                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <h3 className="font-bold mb-4">Leave a Rating</h3>
-                            <div className="flex space-x-2 mb-4">
-                                {[1,2,3,4,5].map(s => (
-                                    <button key={s} onClick={() => setRating({...rating, stars: s})} className={`px-4 py-2 rounded border ${rating.stars >= s ? 'bg-yellow-400 border-yellow-500' : 'bg-gray-100'}`}>⭐</button>
-                                ))}
-                            </div>
-                            <textarea value={rating.comment} onChange={e => setRating({...rating, comment: e.target.value})} className="w-full border rounded p-2 mb-2" placeholder="Comment (optional)"></textarea>
-                            <button onClick={handleRate} className="bg-blue-600 text-white px-4 py-2 rounded">Submit Rating</button>
-                        </div>
-                    )}
-                </div>
-
-                <div className="lg:col-span-1 h-[600px] flex flex-col bg-white rounded-lg shadow-sm border border-gray-200">
-                    <div className="p-4 border-b bg-gray-50 rounded-t-lg">
-                        <h3 className="font-bold text-gray-800">Live Chat</h3>
-                    </div>
-                    <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-gray-50">
-                        {req.status === 'OPEN' ? (
-                            <div className="h-full flex flex-col items-center justify-center text-center px-4">
-                                <svg className="w-12 h-12 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
-                                <p className="text-gray-500 text-sm">Chat will become available once a volunteer accepts your request.</p>
-                            </div>
-                        ) : messages.length === 0 ? (
-                            <p className="text-gray-400 text-center text-sm mt-10">No messages yet. Say hi!</p>
-                        ) : (
-                            messages.map((m, i) => {
-                                const isMe = m.sender.id === user?.id;
-                                return (
-                                    <div key={i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                                        <div className={`px-3 py-2 rounded-lg max-w-[85%] text-sm ${isMe ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
-                                            {m.body}
-                                        </div>
+                            {/* Requester & Metadata card */}
+                            <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-100 flex flex-wrap items-center justify-between gap-3 mb-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-sm shadow-sm">
+                                        {req.requester?.name?.charAt(0) || 'S'}
                                     </div>
-                                );
-                            })
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold text-slate-900 text-sm">{req.requester?.name || "Student"}</span>
+                                            {isRequester && (
+                                                <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
+                                                    You
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-slate-500">
+                                            {req.requester?.hostelId ? `Hostel: ${req.requester.hostelId}` : 'Campus Hosteller'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                                    <span className="bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                                        📦 {req.category}
+                                    </span>
+                                    <span className="bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                                        📍 {req.locationHint ? req.locationHint.replace(/_/g, ' ') : 'Campus'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Description */}
+                            <div className="mb-6">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Description & Instructions</h3>
+                                <p className="text-slate-700 text-sm sm:text-base leading-relaxed whitespace-pre-line bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                                    {req.description}
+                                </p>
+                            </div>
+
+                            {/* Delivery PIN (Hosteller View) */}
+                            {deliveryPin && (
+                                <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 text-amber-900 p-4 sm:p-5 rounded-2xl mb-6 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-lg">🔐</span>
+                                        <h4 className="font-bold text-sm">Secure Delivery PIN</h4>
+                                    </div>
+                                    <div className="flex items-center gap-3 my-2">
+                                        <span className="font-mono text-2xl font-black tracking-widest bg-white px-4 py-1.5 rounded-xl border border-amber-300 shadow-inner">
+                                            {deliveryPin}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-amber-700 leading-normal">
+                                        Keep this safe! Only share this 4-digit PIN with the Day Scholar once you receive your item to verify delivery.
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* ACTIONS BAR */}
+                            <div className="border-t border-slate-100 pt-5">
+                                <h3 className="font-bold text-slate-800 text-sm mb-3">Available Actions</h3>
+                                <div className="flex flex-wrap gap-2.5">
+                                    {req.status === 'OPEN' && isRequester && (
+                                        <button 
+                                            onClick={handleDelete} 
+                                            className="px-4 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl font-bold text-xs border border-rose-200 transition"
+                                        >
+                                            Delete Request
+                                        </button>
+                                    )}
+
+                                    {req.status === 'OPEN' && isVolunteer && (
+                                        <button 
+                                            onClick={() => handleStatus('ACCEPTED')} 
+                                            disabled={actionLoading}
+                                            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-100 transition disabled:opacity-50"
+                                        >
+                                            {actionLoading ? 'Accepting...' : '🤝 Accept Delivery'}
+                                        </button>
+                                    )}
+
+                                    {req.status === 'ACCEPTED' && isVolunteer && (
+                                        <button 
+                                            onClick={() => handleStatus('IN_PROGRESS')} 
+                                            disabled={actionLoading}
+                                            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-100 transition disabled:opacity-50"
+                                        >
+                                            {actionLoading ? 'Updating...' : '🚴 Mark In-Progress (Purchased)'}
+                                        </button>
+                                    )}
+
+                                    {req.status === 'IN_PROGRESS' && isVolunteer && (
+                                        <button 
+                                            onClick={() => handleStatus('DELIVERED')} 
+                                            disabled={actionLoading}
+                                            className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs shadow-md shadow-amber-100 transition disabled:opacity-50"
+                                        >
+                                            {actionLoading ? 'Verifying...' : '✅ Complete Delivery (Enter PIN)'}
+                                        </button>
+                                    )}
+
+                                    {req.status === 'CONFIRMED' && (
+                                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-700 bg-teal-50 px-3 py-1.5 rounded-xl border border-teal-200">
+                                            ✓ Delivery verified and closed
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RATING PANEL (After confirmation) */}
+                        {req.status === 'CONFIRMED' && (
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                                <h3 className="font-bold text-slate-900 text-base mb-1">Rate Delivery Experience</h3>
+                                <p className="text-xs text-slate-500 mb-4">Help maintain high trust & safety on campus.</p>
+                                
+                                <div className="flex gap-2 mb-4">
+                                    {[1, 2, 3, 4, 5].map(s => (
+                                        <button 
+                                            key={s} 
+                                            onClick={() => setRating({ ...rating, stars: s })} 
+                                            className={`w-10 h-10 rounded-xl text-lg flex items-center justify-center border transition-all ${
+                                                rating.stars >= s 
+                                                    ? 'bg-amber-100 border-amber-300 scale-105' 
+                                                    : 'bg-slate-50 border-slate-200 opacity-60'
+                                            }`}
+                                        >
+                                            ⭐
+                                        </button>
+                                    ))}
+                                </div>
+                                <textarea 
+                                    value={rating.comment} 
+                                    onChange={e => setRating({ ...rating, comment: e.target.value })} 
+                                    className="w-full bg-slate-50 border-0 ring-1 ring-inset ring-slate-200 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-600 mb-3" 
+                                    placeholder="Leave a short review or feedback..."
+                                    rows={2}
+                                />
+                                <button 
+                                    onClick={handleRate} 
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition"
+                                >
+                                    Submit Feedback
+                                </button>
+                            </div>
                         )}
                     </div>
-                    <form onSubmit={sendMsg} className="p-3 border-t bg-white flex rounded-b-lg">
-                        <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} disabled={!isConnected || ['OPEN', 'CONFIRMED', 'RATED'].includes(req.status)} placeholder={!isConnected ? "Reconnecting to chat..." : req.status === 'OPEN' ? "Waiting for volunteer..." : "Type a message..."} className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed" />
-                        <button type="submit" disabled={!isConnected || ['OPEN', 'CONFIRMED', 'RATED'].includes(req.status)} className="bg-blue-600 text-white px-4 rounded-r-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">Send</button>
-                    </form>
+
+                    {/* RIGHT COLUMN: LIVE CHAT */}
+                    <div className="lg:col-span-1 h-[560px] flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                        {/* Chat Header */}
+                        <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <h3 className="font-bold text-slate-800 text-sm">Direct Chat</h3>
+                                <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+                            </div>
+                            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                                {isConnected ? 'Live' : 'Connecting...'}
+                            </span>
+                        </div>
+
+                        {/* Messages Body */}
+                        <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/50">
+                            {req.status === 'OPEN' ? (
+                                <div className="h-full flex flex-col items-center justify-center text-center px-4">
+                                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-300 shadow-sm mb-3">
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                        </svg>
+                                    </div>
+                                    <p className="text-slate-600 font-semibold text-xs">Waiting for a Day Scholar</p>
+                                    <p className="text-slate-400 text-[11px] mt-1">Live messaging will activate as soon as someone accepts this delivery.</p>
+                                </div>
+                            ) : messages.length === 0 ? (
+                                <div className="text-center py-10">
+                                    <p className="text-slate-400 text-xs">No messages yet.</p>
+                                    <p className="text-slate-400 text-[10px] mt-0.5">Coordinate drop details with your peer below!</p>
+                                </div>
+                            ) : (
+                                messages.map((m, i) => {
+                                    const isMe = m.sender?.id === user?.id;
+                                    return (
+                                        <div key={i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                                            <span className="text-[9px] text-slate-400 mb-0.5 px-1 font-medium">
+                                                {isMe ? 'You' : m.sender?.name || 'Peer'}
+                                            </span>
+                                            <div className={`px-3.5 py-2 rounded-2xl max-w-[85%] text-xs leading-relaxed shadow-sm ${
+                                                isMe 
+                                                    ? 'bg-indigo-600 text-white rounded-br-xs' 
+                                                    : 'bg-white text-slate-800 border border-slate-200/70 rounded-bl-xs'
+                                            }`}>
+                                                {m.body}
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                            <div ref={chatEndRef} />
+                        </div>
+
+                        {/* Input bar */}
+                        <form onSubmit={sendMsg} className="p-2.5 border-t border-slate-100 bg-white flex gap-1.5">
+                            <input 
+                                type="text" 
+                                value={chatInput} 
+                                onChange={e => setChatInput(e.target.value)} 
+                                disabled={!isConnected || ['OPEN', 'CONFIRMED', 'RATED'].includes(req.status)} 
+                                placeholder={!isConnected ? "Reconnecting..." : req.status === 'OPEN' ? "Waiting for volunteer..." : "Type message..."} 
+                                className="flex-1 px-3 py-2 bg-slate-50 border-0 ring-1 ring-inset ring-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-600 disabled:bg-slate-100 disabled:cursor-not-allowed" 
+                            />
+                            <button 
+                                type="submit" 
+                                disabled={!isConnected || !chatInput.trim() || ['OPEN', 'CONFIRMED', 'RATED'].includes(req.status)} 
+                                className="bg-indigo-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-indigo-700 disabled:bg-slate-200 disabled:cursor-not-allowed transition"
+                            >
+                                Send
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>

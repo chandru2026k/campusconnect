@@ -1,11 +1,17 @@
 import { useEffect, useState } from 'react';
 import api from '../api/axios';
-import { useNavigate } from 'react-router-dom';
+import Navbar from '../components/Navbar';
+
+interface Scholar {
+    id: number;
+    name: string;
+    createdAt: string;
+    reputationScore: number;
+}
 
 export default function Leaderboard() {
-    const [scholars, setScholars] = useState<any[]>([]);
+    const [scholars, setScholars] = useState<Scholar[]>([]);
     const [loading, setLoading] = useState(true);
-    const navigate = useNavigate();
 
     useEffect(() => {
         api.get('/users/leaderboard')
@@ -19,45 +25,94 @@ export default function Leaderboard() {
             });
     }, []);
 
+    const getRankBadge = (index: number) => {
+        switch (index) {
+            case 0:
+                return (
+                    <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center font-black text-base shadow-sm ring-2 ring-amber-400/30">
+                        🥇
+                    </div>
+                );
+            case 1:
+                return (
+                    <div className="w-10 h-10 rounded-2xl bg-slate-200 text-slate-700 flex items-center justify-center font-black text-base shadow-sm ring-2 ring-slate-300">
+                        🥈
+                    </div>
+                );
+            case 2:
+                return (
+                    <div className="w-10 h-10 rounded-2xl bg-orange-100 text-orange-800 flex items-center justify-center font-black text-base shadow-sm ring-2 ring-orange-300">
+                        🥉
+                    </div>
+                );
+            default:
+                return (
+                    <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-sm border border-indigo-100">
+                        #{index + 1}
+                    </div>
+                );
+        }
+    };
+
     return (
-        <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-            <button onClick={() => navigate('/dashboard')} className="mb-4 text-blue-600 font-semibold">&larr; Back to Dashboard</button>
-            
-            <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                <div className="p-6 bg-gradient-to-r from-indigo-500 to-blue-600 text-white">
-                    <h1 className="text-3xl font-bold">Top Scholars</h1>
-                    <p className="opacity-90">The most reliable Day Scholars on campus</p>
+        <div className="min-h-screen bg-slate-50/60 font-sans text-slate-900 pb-12">
+            <Navbar />
+
+            {/* HEADER HERO */}
+            <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-blue-900 text-white relative overflow-hidden">
+                <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative">
+                    <span className="inline-block text-xs font-semibold text-indigo-300 bg-indigo-500/20 px-3 py-1 rounded-full border border-indigo-400/30 mb-2">
+                        ⭐ Campus Hall of Fame
+                    </span>
+                    <h1 className="text-3xl font-black tracking-tight">Top Day Scholars</h1>
+                    <p className="text-indigo-200 text-sm mt-1 max-w-xl">
+                        Recognizing the most helpful and reliable Day Scholars fulfilling deliveries for fellow students.
+                    </p>
                 </div>
-                
-                {loading ? (
-                    <div className="p-8 text-center text-gray-500">Loading...</div>
-                ) : (
-                    <div className="divide-y">
-                        {scholars.length === 0 ? (
-                            <div className="p-8 text-center text-gray-500">No data available yet.</div>
-                        ) : (
-                            scholars.map((scholar, index) => (
-                                <div key={scholar.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+            </div>
+
+            {/* LEADERBOARD LIST */}
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                    {loading ? (
+                        <div className="p-12 text-center text-slate-400 font-medium text-sm">
+                            <div className="inline-block animate-spin w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mb-2"></div>
+                            <p>Loading rankings...</p>
+                        </div>
+                    ) : scholars.length === 0 ? (
+                        <div className="p-12 text-center">
+                            <p className="text-slate-500 font-semibold text-sm">No leaderboard data recorded yet.</p>
+                            <p className="text-slate-400 text-xs mt-1">Complete deliveries to climb to the top!</p>
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-slate-100">
+                            {scholars.map((scholar, index) => (
+                                <div 
+                                    key={scholar.id} 
+                                    className="p-4 sm:p-5 flex items-center justify-between hover:bg-slate-50/80 transition-colors"
+                                >
                                     <div className="flex items-center space-x-4">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${index === 0 ? 'bg-yellow-100 text-yellow-700' : index === 1 ? 'bg-gray-200 text-gray-700' : index === 2 ? 'bg-orange-100 text-orange-800' : 'bg-blue-50 text-blue-600'}`}>
-                                            #{index + 1}
-                                        </div>
+                                        {getRankBadge(index)}
                                         <div>
-                                            <p className="font-bold text-gray-900 text-lg">{scholar.name}</p>
-                                            <p className="text-sm text-gray-500">Joined {new Date(scholar.createdAt).toLocaleDateString()}</p>
+                                            <p className="font-bold text-slate-900 text-base">{scholar.name}</p>
+                                            <p className="text-xs text-slate-400">
+                                                Active Volunteer • Joined {new Date(scholar.createdAt).toLocaleDateString()}
+                                            </p>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <div className="inline-flex items-center space-x-1 bg-yellow-50 px-3 py-1 rounded-full border border-yellow-200">
-                                            <span className="text-yellow-600">⭐</span>
-                                            <span className="font-bold text-yellow-800">{scholar.reputationScore.toFixed(1)}</span>
+                                        <div className="inline-flex items-center space-x-1.5 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200 shadow-sm">
+                                            <span className="text-sm">⭐</span>
+                                            <span className="font-black text-amber-900 text-sm">
+                                                {scholar.reputationScore ? scholar.reputationScore.toFixed(1) : '5.0'}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
-                            ))
-                        )}
-                    </div>
-                )}
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
+import Navbar from '../components/Navbar';
+import StatusBadge from '../components/StatusBadge';
 
 interface RequestModel {
     id: number;
@@ -16,9 +18,10 @@ interface RequestModel {
 }
 
 export default function Dashboard() {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [requests, setRequests] = useState<RequestModel[]>([]);
+    const [loading, setLoading] = useState(true);
     
     // Filters
     const [statusFilter, setStatusFilter] = useState('');
@@ -29,6 +32,7 @@ export default function Dashboard() {
 
     // New Request Form State
     const [showForm, setShowForm] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
     const [newReq, setNewReq] = useState({ category: 'FOOD', title: '', description: '', locationHint: 'MAIN_GATE', isEmergency: false });
     const [agreed, setAgreed] = useState(false);
 
@@ -38,28 +42,36 @@ export default function Dashboard() {
 
     const fetchRequests = async () => {
         try {
+            setLoading(true);
             const res = await api.get('/requests');
             setRequests(res.data);
         } catch (e) {
             console.error('Failed to fetch requests', e);
+            toast.error('Could not load requests');
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleCreateRequest = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!agreed) {
-            alert("You must agree to the disclaimers.");
+            toast.error("Please agree to the campus safety disclaimers.");
             return;
         }
         try {
+            setSubmitting(true);
             await api.post('/requests', newReq);
             setShowForm(false);
             setNewReq({ category: 'FOOD', title: '', description: '', locationHint: 'MAIN_GATE', isEmergency: false });
             setAgreed(false);
+            toast.success('Request posted successfully!');
             fetchRequests();
-        } catch (e) {
+        } catch (e: any) {
             console.error('Failed to create request', e);
-            alert('Failed to post request. Please try again.');
+            toast.error('Failed to post request: ' + (e.response?.data?.message || e.message));
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -68,6 +80,7 @@ export default function Dashboard() {
         if (!window.confirm('Are you sure you want to delete this request?')) return;
         try {
             await api.delete(`/requests/${id}`);
+            toast.success('Request removed');
             fetchRequests();
         } catch (e) {
             toast.error('Error deleting request');
@@ -86,225 +99,395 @@ export default function Dashboard() {
         return true;
     });
 
+    const activeCount = requests.filter(r => r.status === 'OPEN').length;
+
     return (
-        <div className="min-h-screen bg-gray-50/50 font-sans text-gray-900">
-            {/* STICKY NAVBAR */}
-            <nav className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center h-16">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-blue-500 flex items-center justify-center shadow-md">
-                                <span className="text-white font-bold text-lg">C</span>
-                            </div>
-                            <h1 className="text-2xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-700 to-blue-600">
-                                CampusConnect
+        <div className="min-h-screen bg-slate-50/60 font-sans text-slate-900 pb-12">
+            <Navbar />
+
+            {/* HERO BANNER SECTION */}
+            <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-blue-900 text-white relative overflow-hidden">
+                <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 relative">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-200 border border-indigo-400/30 mb-2">
+                                🚀 Peer-to-Peer Campus Logistics
+                            </span>
+                            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
+                                Campus Delivery Feed
                             </h1>
+                            <p className="text-indigo-200 text-sm md:text-base mt-1 max-w-xl">
+                                Connect with Day Scholars for quick deliveries from outside campus straight to your hostel.
+                            </p>
                         </div>
-                        <div className="flex items-center gap-4">
-                            <div className="hidden sm:flex flex-col items-end">
-                                <span className="text-sm font-semibold text-gray-700">{user?.name || user?.email}</span>
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full mt-0.5">
-                                    {user?.role.replace('_', ' ')}
-                                </span>
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 text-center min-w-[110px]">
+                                <span className="block text-2xl font-black text-white">{activeCount}</span>
+                                <span className="text-[11px] font-medium text-indigo-200 uppercase tracking-wider">Open Requests</span>
                             </div>
-                            <button onClick={() => navigate('/profile')} className="ml-4 text-sm font-medium text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg transition-colors border border-gray-200 hover:border-gray-300 bg-white">My Profile</button>
-                              <button onClick={() => navigate('/leaderboard')} className="ml-2 text-sm font-medium text-indigo-600 hover:text-indigo-900 px-4 py-2 rounded-lg transition-colors border border-indigo-200 hover:border-indigo-300 bg-indigo-50">Top Scholars</button>
-                            <button onClick={logout} className="ml-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors border border-transparent hover:border-red-100">
-                                Log Out
-                            </button>
+                            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 text-center min-w-[110px]">
+                                <span className="block text-2xl font-black text-white">{requests.length}</span>
+                                <span className="text-[11px] font-medium text-indigo-200 uppercase tracking-wider">Total Active</span>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </nav>
+            </div>
 
             {/* MAIN CONTENT */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4">
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                     
                     {/* LEFT SIDEBAR (Actions & Filters) */}
-                    <div className="lg:col-span-1 space-y-6">
-                        <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-gray-900/5">
-                            <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Search Requests</label>
-                            <input type="text" placeholder="Search titles or descriptions..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border-0 ring-1 ring-inset ring-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-600" />
-                        </div>
+                    <div className="lg:col-span-1 space-y-5">
                         
-                        {/* NEW REQUEST PANEL */}
+                        {/* SEARCH */}
+                        <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80">
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Search Feed</label>
+                            <div className="relative">
+                                <input 
+                                    type="text" 
+                                    placeholder="Search items, titles..." 
+                                    value={searchQuery} 
+                                    onChange={e => setSearchQuery(e.target.value)} 
+                                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border-0 ring-1 ring-inset ring-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-600 transition" 
+                                />
+                                <svg className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        {/* NEW REQUEST PANEL (Hostellers only) */}
                         {user?.role === 'HOSTEL_STUDENT' && (
-                            <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-gray-900/5 relative overflow-hidden">
+                            <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 relative overflow-hidden">
                                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-blue-500"></div>
                                 
                                 {showForm ? (
-                                    <form onSubmit={handleCreateRequest} className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                                        <h3 className="font-bold text-gray-800 text-lg">New Request</h3>
-                                        <div>
-                                            <input type="text" required value={newReq.title} onChange={e => setNewReq({...newReq, title: e.target.value})} placeholder="What do you need?" 
-                                                className="w-full px-3 py-2 bg-gray-50 border-0 ring-1 ring-inset ring-gray-200 rounded-lg focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm" />
+                                    <form onSubmit={handleCreateRequest} className="space-y-3.5 animate-in fade-in duration-200">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <h3 className="font-bold text-slate-800 text-base">New Request</h3>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setShowForm(false)} 
+                                                className="text-slate-400 hover:text-slate-600 text-xs font-semibold"
+                                            >
+                                                ✕ Close
+                                            </button>
                                         </div>
+
                                         <div>
-                                            <textarea required value={newReq.description} onChange={e => setNewReq({...newReq, description: e.target.value})} placeholder="Details..." rows={2}
-                                                className="w-full px-3 py-2 bg-gray-50 border-0 ring-1 ring-inset ring-gray-200 rounded-lg focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm" />
+                                            <input 
+                                                type="text" 
+                                                required 
+                                                value={newReq.title} 
+                                                onChange={e => setNewReq({...newReq, title: e.target.value})} 
+                                                placeholder="What do you need delivered?" 
+                                                className="w-full px-3 py-2 bg-slate-50 border-0 ring-1 ring-inset ring-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-600" 
+                                            />
                                         </div>
+
+                                        <div>
+                                            <textarea 
+                                                required 
+                                                value={newReq.description} 
+                                                onChange={e => setNewReq({...newReq, description: e.target.value})} 
+                                                placeholder="Specific item details, shop name, or notes..." 
+                                                rows={2}
+                                                className="w-full px-3 py-2 bg-slate-50 border-0 ring-1 ring-inset ring-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-600" 
+                                            />
+                                        </div>
+
                                         <div className="grid grid-cols-2 gap-2">
-                                            <select value={newReq.category} onChange={e => setNewReq({...newReq, category: e.target.value})} className="w-full px-2 py-2 bg-gray-50 border-0 ring-1 ring-inset ring-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-600">
-                                                <option value="FOOD">Food</option>
-                                                <option value="MEDICINE">Medicine</option>
-                                                <option value="DOCUMENT">Document</option>
-                                                <option value="STATIONERY">Stationery</option>
-                                                <option value="OTHER">Other</option>
-                                            </select>
-                                            <select value={newReq.locationHint} onChange={e => setNewReq({...newReq, locationHint: e.target.value})} className="w-full px-2 py-2 bg-gray-50 border-0 ring-1 ring-inset ring-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-600">
-                                                <option value="MAIN_GATE">Main Gate</option>
-                                                <option value="HOSTEL_BLOCK_A">Block A</option>
-                                                <option value="HOSTEL_BLOCK_B">Block B</option>
-                                                <option value="LIBRARY">Library</option>
-                                                <option value="ACADEMIC_BLOCK">Academic</option>
-                                                <option value="TOWN_BUS_STAND">Bus Stand</option>
-                                            </select>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Category</label>
+                                                <select 
+                                                    value={newReq.category} 
+                                                    onChange={e => setNewReq({...newReq, category: e.target.value})} 
+                                                    className="w-full px-2.5 py-2 bg-slate-50 border-0 ring-1 ring-inset ring-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-600"
+                                                >
+                                                    <option value="FOOD">🍔 Food</option>
+                                                    <option value="MEDICINE">💊 Medicine</option>
+                                                    <option value="DOCUMENT">📄 Document</option>
+                                                    <option value="STATIONERY">✏️ Stationery</option>
+                                                    <option value="OTHER">📦 Other</option>
+                                                </select>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Drop Location</label>
+                                                <select 
+                                                    value={newReq.locationHint} 
+                                                    onChange={e => setNewReq({...newReq, locationHint: e.target.value})} 
+                                                    className="w-full px-2.5 py-2 bg-slate-50 border-0 ring-1 ring-inset ring-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-600"
+                                                >
+                                                    <option value="MAIN_GATE">Main Gate</option>
+                                                    <option value="HOSTEL_BLOCK_A">Block A</option>
+                                                    <option value="HOSTEL_BLOCK_B">Block B</option>
+                                                    <option value="LIBRARY">Library</option>
+                                                    <option value="ACADEMIC_BLOCK">Academic</option>
+                                                    <option value="TOWN_BUS_STAND">Bus Stand</option>
+                                                </select>
+                                            </div>
                                         </div>
                                         
-                                        <label className="flex items-center space-x-2 text-sm text-red-600 font-semibold bg-red-50/50 p-2 rounded-lg border border-red-100 cursor-pointer">
-                                            <input type="checkbox" checked={newReq.isEmergency} onChange={e => setNewReq({...newReq, isEmergency: e.target.checked})} className="rounded text-red-600 focus:ring-red-500 w-4 h-4" />
-                                            <span>Mark as Emergency</span>
+                                        <label className="flex items-center space-x-2 text-xs text-rose-700 font-semibold bg-rose-50 p-2 rounded-xl border border-rose-100 cursor-pointer">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={newReq.isEmergency} 
+                                                onChange={e => setNewReq({...newReq, isEmergency: e.target.checked})} 
+                                                className="rounded text-rose-600 focus:ring-rose-500 w-4 h-4" 
+                                            />
+                                            <span>Mark as Emergency / Urgent</span>
                                         </label>
 
-                                        <div className="bg-amber-50 border border-amber-100 p-3 rounded-lg text-xs text-amber-800 space-y-1">
-                                            <strong className="block mb-1">⚠️ Disclaimers</strong>
-                                            <ul className="list-disc pl-4 space-y-0.5">
-                                                <li>No payment handling on platform.</li>
-                                                <li>No live GPS tracking provided.</li>
-                                                <li>No liability guarantee for lost items.</li>
-                                            </ul>
+                                        <div className="bg-amber-50 border border-amber-200/80 p-2.5 rounded-xl text-[11px] text-amber-800 space-y-1">
+                                            <strong className="block font-bold">⚠️ Community Guidelines</strong>
+                                            <p className="leading-tight">Payment is handled directly between peers. Delivery is confirmed using a unique 4-digit PIN.</p>
                                         </div>
-                                        <label className="flex items-start space-x-2 text-xs text-gray-600 cursor-pointer">
-                                            <input type="checkbox" required checked={agreed} onChange={e => setAgreed(e.target.checked)} className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500" />
-                                            <span>I acknowledge and agree to the terms.</span>
+
+                                        <label className="flex items-start space-x-2 text-xs text-slate-600 cursor-pointer">
+                                            <input 
+                                                type="checkbox" 
+                                                required 
+                                                checked={agreed} 
+                                                onChange={e => setAgreed(e.target.checked)} 
+                                                className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500" 
+                                            />
+                                            <span>I acknowledge & agree to the guidelines.</span>
                                         </label>
                                         
-                                        <div className="flex gap-2 pt-2">
-                                            <button type="button" onClick={() => setShowForm(false)} className="flex-1 bg-white border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition">Cancel</button>
-                                            <button type="submit" className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition">Post Request</button>
+                                        <div className="flex gap-2 pt-1">
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setShowForm(false)} 
+                                                className="flex-1 bg-white border border-slate-200 text-slate-700 py-2 rounded-xl text-xs font-semibold hover:bg-slate-50 transition"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button 
+                                                type="submit" 
+                                                disabled={submitting}
+                                                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-xl text-xs font-semibold shadow-sm transition disabled:opacity-50"
+                                            >
+                                                {submitting ? 'Posting...' : 'Post Request'}
+                                            </button>
                                         </div>
                                     </form>
                                 ) : (
-                                    <button onClick={() => setShowForm(true)} className="w-full group relative flex items-center justify-center gap-2 bg-indigo-600 text-white py-3.5 rounded-xl font-semibold shadow-md hover:bg-indigo-700 hover:shadow-lg transition-all duration-200 overflow-hidden">
-                                        <span className="text-xl leading-none font-light group-hover:scale-125 transition-transform">+</span> 
-                                        <span>Create Request</span>
+                                    <button 
+                                        onClick={() => setShowForm(true)} 
+                                        className="w-full group flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-indigo-100 hover:shadow-indigo-200 transition-all duration-200"
+                                    >
+                                        <span className="text-lg leading-none font-light group-hover:scale-125 transition-transform">+</span> 
+                                        <span>Create Delivery Request</span>
                                     </button>
                                 )}
                             </div>
                         )}
 
                         {/* FILTERS PANEL */}
-                        <div className="bg-white p-5 rounded-2xl shadow-sm ring-1 ring-gray-900/5">
-                            <div className="flex items-center gap-2 mb-4 border-b border-gray-100 pb-3">
-                                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
-                                <h3 className="font-bold text-gray-800">Filters</h3>
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80">
+                            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                                <div className="flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                    </svg>
+                                    <h3 className="font-bold text-slate-800 text-sm">Filter Requests</h3>
+                                </div>
+                                {(statusFilter || categoryFilter || locationFilter || emergencyFilter) && (
+                                    <button 
+                                        onClick={() => {
+                                            setStatusFilter('');
+                                            setCategoryFilter('');
+                                            setLocationFilter('');
+                                            setEmergencyFilter(false);
+                                        }}
+                                        className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800"
+                                    >
+                                        Reset
+                                    </button>
+                                )}
                             </div>
                             
-                            <div className="space-y-4">
+                            <div className="space-y-3.5">
                                 <div>
-                                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Status</label>
-                                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border-0 ring-1 ring-inset ring-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-600 cursor-pointer">
+                                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Status</label>
+                                    <select 
+                                        value={statusFilter} 
+                                        onChange={e => setStatusFilter(e.target.value)} 
+                                        className="w-full px-3 py-2 bg-slate-50 border-0 ring-1 ring-inset ring-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-600 cursor-pointer"
+                                    >
                                         <option value="">All Statuses</option>
-                                        <option value="OPEN">Open</option>
+                                        <option value="OPEN">Open (Waiting for Volunteer)</option>
                                         <option value="ACCEPTED">Accepted</option>
                                         <option value="IN_PROGRESS">In Progress</option>
                                         <option value="DELIVERED">Delivered</option>
+                                        <option value="CONFIRMED">Confirmed / Closed</option>
                                     </select>
                                 </div>
+
                                 <div>
-                                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Category</label>
-                                    <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border-0 ring-1 ring-inset ring-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-600 cursor-pointer">
+                                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Category</label>
+                                    <select 
+                                        value={categoryFilter} 
+                                        onChange={e => setCategoryFilter(e.target.value)} 
+                                        className="w-full px-3 py-2 bg-slate-50 border-0 ring-1 ring-inset ring-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-600 cursor-pointer"
+                                    >
                                         <option value="">All Categories</option>
                                         <option value="FOOD">Food</option>
                                         <option value="MEDICINE">Medicine</option>
                                         <option value="STATIONERY">Stationery</option>
+                                        <option value="DOCUMENT">Document</option>
+                                        <option value="OTHER">Other</option>
                                     </select>
                                 </div>
+
                                 <div>
-                                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Location</label>
-                                    <select value={locationFilter} onChange={e => setLocationFilter(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border-0 ring-1 ring-inset ring-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-600 cursor-pointer">
+                                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Location</label>
+                                    <select 
+                                        value={locationFilter} 
+                                        onChange={e => setLocationFilter(e.target.value)} 
+                                        className="w-full px-3 py-2 bg-slate-50 border-0 ring-1 ring-inset ring-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-600 cursor-pointer"
+                                    >
                                         <option value="">All Locations</option>
                                         <option value="MAIN_GATE">Main Gate</option>
                                         <option value="HOSTEL_BLOCK_A">Block A</option>
+                                        <option value="HOSTEL_BLOCK_B">Block B</option>
                                         <option value="LIBRARY">Library</option>
+                                        <option value="ACADEMIC_BLOCK">Academic</option>
+                                        <option value="TOWN_BUS_STAND">Bus Stand</option>
                                     </select>
                                 </div>
-                                <div className="pt-2">
-                                    <label className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer p-2 hover:bg-gray-50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
-                                        <input type="checkbox" checked={emergencyFilter} onChange={e => setEmergencyFilter(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" />
-                                        <span className="font-medium">Emergency Only</span>
+
+                                <div className="pt-1">
+                                    <label className="flex items-center space-x-2 text-xs text-slate-700 cursor-pointer p-2 hover:bg-slate-50 rounded-xl transition border border-transparent hover:border-slate-200">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={emergencyFilter} 
+                                            onChange={e => setEmergencyFilter(e.target.checked)} 
+                                            className="rounded text-rose-600 focus:ring-rose-500 w-4 h-4" 
+                                        />
+                                        <span className="font-semibold text-rose-700">🚨 Urgent Requests Only</span>
                                     </label>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* RIGHT FEED (Requests) */}
+                    {/* RIGHT FEED (Requests Grid) */}
                     <div className="lg:col-span-3">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-2xl font-bold text-gray-900">Request Feed</h2>
-                            <span className="text-sm font-medium text-gray-500 bg-white px-3 py-1 rounded-full shadow-sm ring-1 ring-gray-900/5">{filteredRequests.length} results</span>
+                        <div className="flex items-center justify-between mb-4 bg-white px-4 py-3 rounded-2xl shadow-sm border border-slate-200/80">
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-base font-bold text-slate-900">Live Deliveries</h2>
+                                <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full">
+                                    {filteredRequests.length} available
+                                </span>
+                            </div>
+                            <button 
+                                onClick={fetchRequests} 
+                                className="text-xs font-semibold text-slate-500 hover:text-indigo-600 flex items-center gap-1.5 transition"
+                            >
+                                <svg className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                Refresh
+                            </button>
                         </div>
 
-                        {filteredRequests.length === 0 ? (
-                            <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-900/5 p-12 flex flex-col items-center justify-center text-center animate-in fade-in duration-500">
-                                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                                    <svg className="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                        {loading ? (
+                            <div className="grid gap-4 md:grid-cols-2">
+                                {[1, 2, 3, 4].map(n => (
+                                    <div key={n} className="bg-white rounded-2xl p-6 border border-slate-200/80 animate-pulse space-y-3">
+                                        <div className="h-4 bg-slate-100 rounded w-1/3"></div>
+                                        <div className="h-6 bg-slate-100 rounded w-3/4"></div>
+                                        <div className="h-12 bg-slate-100 rounded w-full"></div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : filteredRequests.length === 0 ? (
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-12 flex flex-col items-center justify-center text-center">
+                                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-3">
+                                    <svg className="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                    </svg>
                                 </div>
-                                <h3 className="text-lg font-bold text-gray-900 mb-1">It's quiet here</h3>
-                                <p className="text-gray-500 max-w-sm">There are currently no active requests matching your selected filters.</p>
+                                <h3 className="text-base font-bold text-slate-900 mb-1">No requests found</h3>
+                                <p className="text-slate-500 text-sm max-w-sm">
+                                    There are currently no active requests matching your search or filters.
+                                </p>
                                 {user?.role === 'HOSTEL_STUDENT' && (
-                                    <button onClick={() => setShowForm(true)} className="mt-6 text-indigo-600 font-medium hover:text-indigo-700 hover:underline">
-                                        Post the first request
+                                    <button 
+                                        onClick={() => setShowForm(true)} 
+                                        className="mt-4 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition"
+                                    >
+                                        Post the first delivery request
                                     </button>
                                 )}
                             </div>
                         ) : (
-                            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-2">
+                            <div className="grid gap-4 md:grid-cols-2">
                                 {filteredRequests.map(req => (
-                                    <div key={req.id} onClick={() => navigate(`/request/${req.id}`)} 
-                                         className="group bg-white rounded-2xl shadow-sm ring-1 ring-gray-900/5 cursor-pointer hover:-translate-y-1 hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col relative">
-                                        
-                                        {/* Status Accent Bar */}
-                                        <div className={`h-1.5 w-full ${req.status === 'OPEN' ? 'bg-emerald-400' : 'bg-gray-300'}`}></div>
+                                    <div 
+                                        key={req.id} 
+                                        onClick={() => navigate(`/request/${req.id}`)} 
+                                        className="group bg-white rounded-2xl shadow-sm border border-slate-200/80 hover:border-indigo-300 hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden flex flex-col relative"
+                                    >
+                                        {/* Status indicator bar */}
+                                        <div className={`h-1.5 w-full ${req.status === 'OPEN' ? 'bg-emerald-500' : req.status === 'IN_PROGRESS' ? 'bg-purple-500' : req.status === 'ACCEPTED' ? 'bg-blue-500' : 'bg-slate-300'}`}></div>
                                         
                                         <div className="p-5 flex flex-col flex-grow">
-                                            <div className="flex justify-between items-start mb-3">
-                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-md ${req.status === 'OPEN' ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20' : 'bg-gray-100 text-gray-600 ring-1 ring-gray-500/10'}`}>
-                                                    {req.status === 'OPEN' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>}
-                                                    {req.status}
-                                                </span>
-                                                <div className="flex items-center gap-2">
-                                                    {req.isEmergency && (
-                                                        <span className="inline-flex items-center gap-1 bg-red-50 text-red-700 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ring-1 ring-red-600/20">
-                                                            <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path></svg>
-                                                            URGENT
-                                                        </span>
-                                                    )}
-                                                    {user?.id === req.requester.id && req.status === 'OPEN' && (
-                                                        <button 
-                                                            onClick={(e) => handleDeleteRequest(e, req.id)}
-                                                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-md transition-colors"
-                                                            title="Delete Request"
-                                                        >
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                                        </button>
-                                                    )}
-                                                </div>
+                                            {/* Header with badges */}
+                                            <div className="flex justify-between items-start mb-2.5">
+                                                <StatusBadge status={req.status} isEmergency={req.isEmergency} />
+
+                                                {user?.id === req.requester.id && req.status === 'OPEN' && (
+                                                    <button 
+                                                        onClick={(e) => handleDeleteRequest(e, req.id)}
+                                                        className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded-lg transition-colors"
+                                                        title="Delete Request"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    </button>
+                                                )}
                                             </div>
                                             
-                                            <h3 className="font-bold text-gray-900 text-lg mb-1.5 truncate group-hover:text-indigo-600 transition-colors" title={req.title}>{req.title}</h3>
-                                            <p className="text-sm text-gray-600 line-clamp-2 mb-4 flex-grow leading-relaxed">{req.description}</p>
+                                            {/* Title & Description */}
+                                            <h3 className="font-bold text-slate-900 text-base mb-1.5 group-hover:text-indigo-600 transition-colors line-clamp-1">
+                                                {req.title}
+                                            </h3>
+                                            <p className="text-xs text-slate-600 line-clamp-2 mb-4 leading-relaxed flex-grow">
+                                                {req.description}
+                                            </p>
                                             
-                                            <div className="mb-3 text-xs text-gray-500 flex items-center gap-1.5"><svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg> <span>{req.requester?.name || "Student"} {req.requester?.hostelId ? `(${req.requester.hostelId})` : ""}</span></div>
-                                            <div className="flex justify-between items-center text-xs font-medium text-gray-500 pt-4 mt-auto border-t border-gray-100">
-                                                <span className="inline-flex items-center gap-1.5 bg-gray-50 px-2.5 py-1.5 rounded-md text-gray-600 ring-1 ring-gray-900/5">
-                                                    <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
-                                                    {req.category}
+                                            {/* Requester details */}
+                                            <div className="mb-3.5 text-xs text-slate-500 flex items-center gap-2">
+                                                <div className="w-5 h-5 rounded-full bg-slate-100 text-slate-600 font-bold flex items-center justify-center text-[10px]">
+                                                    {req.requester?.name?.charAt(0) || 'S'}
+                                                </div>
+                                                <span className="font-medium text-slate-700 truncate">
+                                                    {req.requester?.name || "Student"}
                                                 </span>
-                                                <span className="inline-flex items-center gap-1.5 text-gray-600 truncate max-w-[50%]">
-                                                    <svg className="w-3.5 h-3.5 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                                {req.requester?.hostelId && (
+                                                    <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[10px] font-medium">
+                                                        Room {req.requester.hostelId}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* Footer metadata */}
+                                            <div className="flex justify-between items-center text-xs font-semibold pt-3 border-t border-slate-100">
+                                                <span className="inline-flex items-center gap-1 text-slate-600 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
+                                                    <span>📦</span> {req.category}
+                                                </span>
+                                                <span className="inline-flex items-center gap-1 text-slate-600 truncate max-w-[55%]">
+                                                    <svg className="w-3.5 h-3.5 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    </svg>
                                                     <span className="truncate">{req.locationHint.replace(/_/g, ' ')}</span>
                                                 </span>
                                             </div>
