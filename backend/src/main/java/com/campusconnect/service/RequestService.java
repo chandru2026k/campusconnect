@@ -23,9 +23,11 @@ public class RequestService {
     @org.springframework.scheduling.annotation.Scheduled(fixedRate = 60000)
     public void expireOldRequests() {
         List<Request> expired = requestRepository.findByStatusAndDeadlineAtBefore(RequestStatus.OPEN, java.time.LocalDateTime.now());
-        for (Request req : expired) {
-            req.setStatus(RequestStatus.EXPIRED);
-            requestRepository.save(req);
+        if (!expired.isEmpty()) {
+            for (Request req : expired) {
+                req.setStatus(RequestStatus.EXPIRED);
+            }
+            requestRepository.saveAll(expired);
         }
     }
 
@@ -41,7 +43,7 @@ public class RequestService {
     }
 
     public Request getRequest(Long requestId) {
-        return requestRepository.findById(requestId)
+        return requestRepository.findWithRequesterById(requestId)
                 .orElseThrow(() -> new RuntimeException("Request not found"));
     }
 
@@ -95,7 +97,7 @@ public class RequestService {
     }
 
     public List<Request> getAllRequests() {
-        return requestRepository.findAll();
+        return requestRepository.findAllByOrderByCreatedAtDesc();
     }
 
     public void updateStatus(Long requestId, RequestStatus newStatus, Long userId, String pin) {
