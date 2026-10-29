@@ -8,6 +8,14 @@ import SockJS from 'sockjs-client';
 import Navbar from '../components/Navbar';
 import StatusBadge from '../components/StatusBadge';
 
+interface UserSummary {
+    id: number;
+    name: string;
+    role: string;
+    hostelId?: string;
+    reputationScore?: number;
+}
+
 interface RequestDetail {
     id: number;
     title: string;
@@ -16,8 +24,11 @@ interface RequestDetail {
     status: string;
     locationHint: string;
     isEmergency: boolean;
-    requester: { id: number; name: string; hostelId?: string; reputationScore?: number };
-    volunteer?: { id: number; name: string };
+    createdAt?: string;
+    deadlineAt?: string;
+    requester: UserSummary;
+    volunteer?: UserSummary | null;
+    acceptedAt?: string | null;
 }
 
 interface ChatMessage {
@@ -49,12 +60,12 @@ export default function RequestDetailView() {
     }, [messages]);
 
     useEffect(() => {
-        if (req && user?.id === req.requester.id && req.status !== 'OPEN') {
+        if (req && user?.id === req.requester?.id && req.status !== 'OPEN') {
             api.get(`/requests/${id}/pin`)
                 .then(res => setDeliveryPin(res.data.pin))
                 .catch(e => console.error(e));
         }
-    }, [req?.status, req?.requester.id, user?.id, id]);
+    }, [req?.status, req?.requester?.id, user?.id, id]);
 
     useEffect(() => {
         fetchDetails();
@@ -87,9 +98,9 @@ export default function RequestDetailView() {
 
     const fetchDetails = async () => {
         try {
-            const res = await api.get('/requests');
-            const match = res.data.find((r: any) => r.id === Number(id));
-            setReq(match);
+            // Use dedicated endpoint with volunteer and full summary
+            const res = await api.get(`/requests/${id}`);
+            setReq(res.data);
             
             // Fetch chat history
             try {
@@ -117,7 +128,7 @@ export default function RequestDetailView() {
                     return;
                 }
                 await api.patch(`/requests/${id}/status`, { status, pin });
-                toast.success('Delivery completed and verified!');
+                toast.success('PIN verified! Delivery completed and confirmed.');
             } else {
                 await api.patch(`/requests/${id}/status`, { status });
                 toast.success(`Status updated to ${status.replace('_', ' ')}`);
@@ -143,7 +154,11 @@ export default function RequestDetailView() {
 
     const handleRate = async () => {
         try {
-            const rateeId = user?.id === req?.requester.id ? req?.volunteer?.id : req?.requester.id;
+            const rateeId = user?.id === req?.requester?.id ? req?.volunteer?.id : req?.requester?.id;
+            if (!rateeId) {
+                toast.error('Cannot determine user to rate.');
+                return;
+            }
             await api.post('/ratings', { requestId: Number(id), rateeId, stars: rating.stars, comment: rating.comment });
             toast.success('Rating submitted. Thank you!');
             fetchDetails();
@@ -175,8 +190,8 @@ export default function RequestDetailView() {
         );
     }
 
-    const isRequester = user?.id === req.requester.id;
-    const isVolunteer = user?.role === 'DAY_SCHOLAR' && !isRequester; 
+    const isRequester = user?.id === req.requester?.id;
+    const isVolunteer = (req.volunteer ? user?.id === req.volunteer.id : user?.role === 'DAY_SCHOLAR') && !isRequester; 
 
     return (
         <div className="min-h-screen bg-slate-50/60 font-sans text-slate-900 pb-12">
@@ -206,9 +221,10 @@ export default function RequestDetailView() {
                                 <StatusBadge status={req.status} isEmergency={req.isEmergency} />
                             </div>
 
-                            {/* Requester & Metadata card */}
-                            <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-100 flex flex-wrap items-center justify-between gap-3 mb-6">
-                                <div className="flex items-center gap-3">
+                            {/* Requester & Volunteer Cards Grid */}
+                            <div className="grid sm:grid-cols-2 gap-3 mb-6">
+                                {/* Requester Card */}
+                                <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-100 flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-sm shadow-sm">
                                         {req.requester?.name?.charAt(0) || 'S'}
                                     </div>
@@ -222,19 +238,56 @@ export default function RequestDetailView() {
                                             )}
                                         </div>
                                         <p className="text-xs text-slate-500">
-                                            {req.requester?.hostelId ? `Hostel: ${req.requester.hostelId}` : 'Campus Hosteller'}
+                                            Hostel: {req.requester?.hostelId || 'Campus Hosteller'}
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-                                    <span className="bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-                                        📦 {req.category}
-                                    </span>
-                                    <span className="bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-                                        📍 {req.locationHint ? req.locationHint.replace(/_/g, ' ') : 'Campus'}
-                                    </span>
+                                {/* Volunteer Card */}
+                                <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-100 flex items-center gap-3">
+                                    {req.volunteer ? (
+                                        <>
+                                            <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-sm shadow-sm">
+                                                {req.volunteer.name.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-bold text-slate-900 text-sm">{req.volunteer.name}</span>
+                                                    {user?.id === req.volunteer.id && (
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full">
+                                                            You
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                                    <span>Day Scholar</span>
+                                                    <span>•</span>
+                                                    <span className="text-amber-700 font-semibold">⭐ {req.volunteer.reputationScore ? Number(req.volunteer.reputationScore).toFixed(1) : '5.0'}</span>
+                                                </div>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="flex items-center gap-3 text-slate-400">
+                                            <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-sm">
+                                                ⏳
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-slate-600 text-sm">No Volunteer Yet</p>
+                                                <p className="text-xs text-slate-400">Open for Day Scholars</p>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
+                            </div>
+
+                            {/* Chips */}
+                            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 mb-6">
+                                <span className="bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
+                                    📦 {req.category}
+                                </span>
+                                <span className="bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
+                                    📍 Drop Location: {req.locationHint ? req.locationHint.replace(/_/g, ' ') : 'Campus'}
+                                </span>
                             </div>
 
                             {/* Description */}
@@ -306,9 +359,9 @@ export default function RequestDetailView() {
                                         </button>
                                     )}
 
-                                    {req.status === 'CONFIRMED' && (
+                                    {(req.status === 'CONFIRMED' || req.status === 'RATED') && (
                                         <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-700 bg-teal-50 px-3 py-1.5 rounded-xl border border-teal-200">
-                                            ✓ Delivery verified and closed
+                                            ✓ Delivery verified and completed
                                         </span>
                                     )}
                                 </div>

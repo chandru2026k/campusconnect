@@ -2,6 +2,7 @@ package com.campusconnect.controller;
 
 import com.campusconnect.domain.Request;
 import com.campusconnect.domain.RequestStatus;
+import com.campusconnect.dto.RequestDetailDto;
 import com.campusconnect.security.UserDetailsImpl;
 import com.campusconnect.service.MatchService;
 import com.campusconnect.service.RequestService;
@@ -37,6 +38,11 @@ public class RequestController {
         return ResponseEntity.ok(requestService.getAllRequests());
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<RequestDetailDto> getRequestDetail(@PathVariable Long id) {
+        return ResponseEntity.ok(requestService.getRequestDetail(id));
+    }
+
     @PostMapping("/{id}/accept")
     public ResponseEntity<?> acceptRequest(@PathVariable Long id, @AuthenticationPrincipal UserDetailsImpl userDetails) {
         try {
@@ -70,9 +76,9 @@ public class RequestController {
 
     @GetMapping("/{id}/messages")
     public ResponseEntity<?> getChatHistory(@PathVariable Long id) {
-        // Expose chat history via REST
         return ResponseEntity.ok(messageService.getChatHistory(id));
     }
+
     @GetMapping("/{id}/pin")
     public ResponseEntity<?> getDeliveryPin(@PathVariable Long id, @AuthenticationPrincipal UserDetailsImpl userDetails) {
         Request req = requestService.getRequest(id);
