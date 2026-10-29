@@ -24,6 +24,8 @@ public class RequestDetailDto {
     private Boolean isEmergency;
     private LocalDateTime createdAt;
     private LocalDateTime deadlineAt;
+    private Double estimatedCost;
+    private Double tipAmount;
     
     private UserSummaryDto requester;
     private UserSummaryDto volunteer;

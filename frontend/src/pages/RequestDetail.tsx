@@ -26,6 +26,8 @@ interface RequestDetail {
     isEmergency: boolean;
     createdAt?: string;
     deadlineAt?: string;
+    estimatedCost?: number;
+    tipAmount?: number;
     requester: UserSummary;
     volunteer?: UserSummary | null;
     acceptedAt?: string | null;
@@ -37,6 +39,14 @@ interface ChatMessage {
     body: string;
     sentAt: string;
 }
+
+// Preset Quick Replies
+const QUICK_REPLIES = [
+    "I'm at the shop now! 🛍️",
+    "Item bought, heading back to campus! 🛵",
+    "I've arrived at your hostel entrance. 📍",
+    "Could you please share the Delivery PIN? 🔐",
+];
 
 export default function RequestDetailView() {
     const { id } = useParams();
@@ -98,7 +108,6 @@ export default function RequestDetailView() {
 
     const fetchDetails = async () => {
         try {
-            // Use dedicated endpoint with volunteer and full summary
             const res = await api.get(`/requests/${id}`);
             setReq(res.data);
             
@@ -167,13 +176,13 @@ export default function RequestDetailView() {
         }
     };
 
-    const sendMsg = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!chatInput.trim() || !stompClientRef.current?.connected) return;
+    const sendMsg = (bodyToSend?: string) => {
+        const text = bodyToSend || chatInput;
+        if (!text.trim() || !stompClientRef.current?.connected) return;
         
-        const payload = { senderId: user?.id, body: chatInput };
+        const payload = { senderId: user?.id, body: text.trim() };
         stompClientRef.current.publish({ destination: `/app/chat/${id}`, body: JSON.stringify(payload) });
-        setChatInput('');
+        if (!bodyToSend) setChatInput('');
     };
 
     if (!req) {
@@ -220,6 +229,35 @@ export default function RequestDetailView() {
                                 </h1>
                                 <StatusBadge status={req.status} isEmergency={req.isEmergency} />
                             </div>
+
+                            {/* Financial / Reimbursement highlight card if present */}
+                            {(req.estimatedCost || req.tipAmount) && (
+                                <div className="mb-5 p-4 rounded-xl bg-gradient-to-r from-emerald-50/80 to-teal-50/80 border border-emerald-100 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-lg">
+                                            💵
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-emerald-950 uppercase tracking-wider">Payment / Reimbursement</p>
+                                            <p className="text-xs text-emerald-700">Reimburse in cash or UPI upon delivery</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-right">
+                                        {req.estimatedCost && (
+                                            <div>
+                                                <span className="block text-[10px] uppercase font-bold text-slate-400">Est. Cost</span>
+                                                <span className="font-extrabold text-slate-800 text-sm">₹{req.estimatedCost}</span>
+                                            </div>
+                                        )}
+                                        {req.tipAmount && (
+                                            <div className="bg-emerald-600 text-white px-2.5 py-1 rounded-lg">
+                                                <span className="block text-[9px] uppercase font-bold text-emerald-100">Volunteer Tip</span>
+                                                <span className="font-black text-sm">+₹{req.tipAmount}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Requester & Volunteer Cards Grid */}
                             <div className="grid sm:grid-cols-2 gap-3 mb-6">
@@ -407,7 +445,7 @@ export default function RequestDetailView() {
                     </div>
 
                     {/* RIGHT COLUMN: LIVE CHAT */}
-                    <div className="lg:col-span-1 h-[560px] flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                    <div className="lg:col-span-1 h-[580px] flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
                         {/* Chat Header */}
                         <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -458,8 +496,24 @@ export default function RequestDetailView() {
                             <div ref={chatEndRef} />
                         </div>
 
+                        {/* Quick Preset Replies */}
+                        {!['OPEN', 'CONFIRMED', 'RATED'].includes(req.status) && isConnected && (
+                            <div className="px-3 py-2 border-t border-slate-100 bg-slate-50 flex gap-1.5 overflow-x-auto no-scrollbar">
+                                {QUICK_REPLIES.map((reply, index) => (
+                                    <button
+                                        key={index}
+                                        type="button"
+                                        onClick={() => sendMsg(reply)}
+                                        className="whitespace-nowrap px-2.5 py-1 rounded-full bg-white text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 border border-slate-200 text-[10px] font-semibold transition shrink-0"
+                                    >
+                                        {reply}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
                         {/* Input bar */}
-                        <form onSubmit={sendMsg} className="p-2.5 border-t border-slate-100 bg-white flex gap-1.5">
+                        <form onSubmit={(e) => { e.preventDefault(); sendMsg(); }} className="p-2.5 border-t border-slate-100 bg-white flex gap-1.5">
                             <input 
                                 type="text" 
                                 value={chatInput} 

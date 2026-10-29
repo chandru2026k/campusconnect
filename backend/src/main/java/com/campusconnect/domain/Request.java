@@ -51,6 +51,13 @@ public class Request {
 
     @Column(nullable = false)
     private LocalDateTime deadlineAt;
+
+    @Column
+    private Double estimatedCost;
+
+    @Column
+    private Double tipAmount;
+
     @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(length = 10)
     private String deliveryPin;

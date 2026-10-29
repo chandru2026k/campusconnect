@@ -14,6 +14,9 @@ interface RequestModel {
     isEmergency: boolean;
     status: string;
     locationHint: string;
+    estimatedCost?: number;
+    tipAmount?: number;
+    createdAt?: string;
     requester: { id: number; name: string; role: string; hostelId?: string };
 }
 
@@ -23,17 +26,27 @@ export default function Dashboard() {
     const [requests, setRequests] = useState<RequestModel[]>([]);
     const [loading, setLoading] = useState(true);
     
+    // Tab State: 'ALL' | 'MY_REQUESTS' | 'URGENT'
+    const [activeTab, setActiveTab] = useState<'ALL' | 'MY_REQUESTS' | 'URGENT'>('ALL');
+
     // Filters
     const [statusFilter, setStatusFilter] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
     const [locationFilter, setLocationFilter] = useState('');
-    const [emergencyFilter, setEmergencyFilter] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
     // New Request Form State
     const [showForm, setShowForm] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [newReq, setNewReq] = useState({ category: 'FOOD', title: '', description: '', locationHint: 'MAIN_GATE', isEmergency: false });
+    const [newReq, setNewReq] = useState({ 
+        category: 'FOOD', 
+        title: '', 
+        description: '', 
+        locationHint: 'MAIN_GATE', 
+        isEmergency: false,
+        estimatedCost: '',
+        tipAmount: ''
+    });
     const [agreed, setAgreed] = useState(false);
 
     useEffect(() => {
@@ -61,9 +74,14 @@ export default function Dashboard() {
         }
         try {
             setSubmitting(true);
-            await api.post('/requests', newReq);
+            const payload = {
+                ...newReq,
+                estimatedCost: newReq.estimatedCost ? parseFloat(newReq.estimatedCost) : null,
+                tipAmount: newReq.tipAmount ? parseFloat(newReq.tipAmount) : null
+            };
+            await api.post('/requests', payload);
             setShowForm(false);
-            setNewReq({ category: 'FOOD', title: '', description: '', locationHint: 'MAIN_GATE', isEmergency: false });
+            setNewReq({ category: 'FOOD', title: '', description: '', locationHint: 'MAIN_GATE', isEmergency: false, estimatedCost: '', tipAmount: '' });
             setAgreed(false);
             toast.success('Request posted successfully!');
             fetchRequests();
@@ -88,10 +106,14 @@ export default function Dashboard() {
     };
 
     const filteredRequests = requests.filter(r => {
+        // Tab filtering
+        if (activeTab === 'MY_REQUESTS' && r.requester?.id !== user?.id) return false;
+        if (activeTab === 'URGENT' && !r.isEmergency) return false;
+
+        // Custom filters
         if (statusFilter && r.status !== statusFilter) return false;
         if (categoryFilter && r.category !== categoryFilter) return false;
         if (locationFilter && r.locationHint !== locationFilter) return false;
-        if (emergencyFilter && !r.isEmergency) return false;
         if (searchQuery) {
             const q = searchQuery.toLowerCase();
             if (!r.title.toLowerCase().includes(q) && !r.description?.toLowerCase().includes(q)) return false;
@@ -100,6 +122,8 @@ export default function Dashboard() {
     });
 
     const activeCount = requests.filter(r => r.status === 'OPEN').length;
+    const myCount = requests.filter(r => r.requester?.id === user?.id).length;
+    const urgentCount = requests.filter(r => r.isEmergency && r.status === 'OPEN').length;
 
     return (
         <div className="min-h-screen bg-slate-50/60 font-sans text-slate-900 pb-12">
@@ -121,14 +145,18 @@ export default function Dashboard() {
                                 Connect with Day Scholars for quick deliveries from outside campus straight to your hostel.
                             </p>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 text-center min-w-[110px]">
-                                <span className="block text-2xl font-black text-white">{activeCount}</span>
-                                <span className="text-[11px] font-medium text-indigo-200 uppercase tracking-wider">Open Requests</span>
+                        <div className="flex items-center gap-2.5 sm:gap-3">
+                            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 sm:p-4 border border-white/10 text-center min-w-[95px] sm:min-w-[110px]">
+                                <span className="block text-xl sm:text-2xl font-black text-white">{activeCount}</span>
+                                <span className="text-[10px] sm:text-[11px] font-medium text-indigo-200 uppercase tracking-wider">Open</span>
                             </div>
-                            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 text-center min-w-[110px]">
-                                <span className="block text-2xl font-black text-white">{requests.length}</span>
-                                <span className="text-[11px] font-medium text-indigo-200 uppercase tracking-wider">Total Active</span>
+                            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 sm:p-4 border border-white/10 text-center min-w-[95px] sm:min-w-[110px]">
+                                <span className="block text-xl sm:text-2xl font-black text-rose-300">{urgentCount}</span>
+                                <span className="text-[10px] sm:text-[11px] font-medium text-rose-200 uppercase tracking-wider">Urgent</span>
+                            </div>
+                            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 sm:p-4 border border-white/10 text-center min-w-[95px] sm:min-w-[110px]">
+                                <span className="block text-xl sm:text-2xl font-black text-white">{myCount}</span>
+                                <span className="text-[10px] sm:text-[11px] font-medium text-indigo-200 uppercase tracking-wider">Mine</span>
                             </div>
                         </div>
                     </div>
@@ -137,6 +165,56 @@ export default function Dashboard() {
 
             {/* MAIN CONTENT */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4">
+                
+                {/* TABS NAVIGATION */}
+                <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-200/80 mb-6 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            onClick={() => setActiveTab('ALL')}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                                activeTab === 'ALL'
+                                    ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-100'
+                                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                            }`}
+                        >
+                            All Deliveries ({requests.length})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('MY_REQUESTS')}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                                activeTab === 'MY_REQUESTS'
+                                    ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-100'
+                                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                            }`}
+                        >
+                            My Activity ({myCount})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('URGENT')}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                                activeTab === 'URGENT'
+                                    ? 'bg-rose-600 text-white shadow-sm shadow-rose-100'
+                                    : 'text-rose-600 hover:bg-rose-50'
+                            }`}
+                        >
+                            <span>🚨 Urgent Only</span>
+                            <span className="text-[10px] bg-rose-100 text-rose-800 px-1.5 py-0.5 rounded-full font-bold">
+                                {urgentCount}
+                            </span>
+                        </button>
+                    </div>
+
+                    <button 
+                        onClick={fetchRequests} 
+                        className="text-xs font-semibold text-slate-500 hover:text-indigo-600 flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-slate-50 transition"
+                    >
+                        <svg className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
+
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                     
                     {/* LEFT SIDEBAR (Actions & Filters) */}
@@ -167,7 +245,7 @@ export default function Dashboard() {
                                 {showForm ? (
                                     <form onSubmit={handleCreateRequest} className="space-y-3.5 animate-in fade-in duration-200">
                                         <div className="flex justify-between items-center mb-1">
-                                            <h3 className="font-bold text-slate-800 text-base">New Request</h3>
+                                            <h3 className="font-bold text-slate-800 text-base">New Delivery Request</h3>
                                             <button 
                                                 type="button" 
                                                 onClick={() => setShowForm(false)} 
@@ -178,25 +256,53 @@ export default function Dashboard() {
                                         </div>
 
                                         <div>
+                                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Item Title</label>
                                             <input 
                                                 type="text" 
                                                 required 
                                                 value={newReq.title} 
                                                 onChange={e => setNewReq({...newReq, title: e.target.value})} 
-                                                placeholder="What do you need delivered?" 
+                                                placeholder="e.g. Paracetamol tablets from Main Gate" 
                                                 className="w-full px-3 py-2 bg-slate-50 border-0 ring-1 ring-inset ring-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-600" 
                                             />
                                         </div>
 
                                         <div>
+                                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Description / Store Details</label>
                                             <textarea 
                                                 required 
                                                 value={newReq.description} 
                                                 onChange={e => setNewReq({...newReq, description: e.target.value})} 
-                                                placeholder="Specific item details, shop name, or notes..." 
+                                                placeholder="Specific item brand, pharmacy name, or special instructions..." 
                                                 rows={2}
                                                 className="w-full px-3 py-2 bg-slate-50 border-0 ring-1 ring-inset ring-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-600" 
                                             />
+                                        </div>
+
+                                        {/* Estimated Cost & Tip */}
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Est. Item Cost (₹)</label>
+                                                <input 
+                                                    type="number"
+                                                    min="0"
+                                                    value={newReq.estimatedCost} 
+                                                    onChange={e => setNewReq({...newReq, estimatedCost: e.target.value})} 
+                                                    placeholder="₹ 150" 
+                                                    className="w-full px-2.5 py-2 bg-slate-50 border-0 ring-1 ring-inset ring-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-600" 
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-emerald-700 uppercase mb-1">Tip / Fuel Share (₹)</label>
+                                                <input 
+                                                    type="number"
+                                                    min="0"
+                                                    value={newReq.tipAmount} 
+                                                    onChange={e => setNewReq({...newReq, tipAmount: e.target.value})} 
+                                                    placeholder="₹ 30" 
+                                                    className="w-full px-2.5 py-2 bg-emerald-50/60 border-0 ring-1 ring-inset ring-emerald-200 rounded-xl text-xs font-semibold text-emerald-900 focus:ring-2 focus:ring-emerald-600" 
+                                                />
+                                            </div>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-2">
@@ -242,11 +348,6 @@ export default function Dashboard() {
                                             <span>Mark as Emergency / Urgent</span>
                                         </label>
 
-                                        <div className="bg-amber-50 border border-amber-200/80 p-2.5 rounded-xl text-[11px] text-amber-800 space-y-1">
-                                            <strong className="block font-bold">⚠️ Community Guidelines</strong>
-                                            <p className="leading-tight">Payment is handled directly between peers. Delivery is confirmed using a unique 4-digit PIN.</p>
-                                        </div>
-
                                         <label className="flex items-start space-x-2 text-xs text-slate-600 cursor-pointer">
                                             <input 
                                                 type="checkbox" 
@@ -255,7 +356,7 @@ export default function Dashboard() {
                                                 onChange={e => setAgreed(e.target.checked)} 
                                                 className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500" 
                                             />
-                                            <span>I acknowledge & agree to the guidelines.</span>
+                                            <span>I agree to reimburse the volunteer upon delivery.</span>
                                         </label>
                                         
                                         <div className="flex gap-2 pt-1">
@@ -294,15 +395,14 @@ export default function Dashboard() {
                                     <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                                     </svg>
-                                    <h3 className="font-bold text-slate-800 text-sm">Filter Requests</h3>
+                                    <h3 className="font-bold text-slate-800 text-sm">Filter Feed</h3>
                                 </div>
-                                {(statusFilter || categoryFilter || locationFilter || emergencyFilter) && (
+                                {(statusFilter || categoryFilter || locationFilter) && (
                                     <button 
                                         onClick={() => {
                                             setStatusFilter('');
                                             setCategoryFilter('');
                                             setLocationFilter('');
-                                            setEmergencyFilter(false);
                                         }}
                                         className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800"
                                     >
@@ -323,8 +423,7 @@ export default function Dashboard() {
                                         <option value="OPEN">Open (Waiting for Volunteer)</option>
                                         <option value="ACCEPTED">Accepted</option>
                                         <option value="IN_PROGRESS">In Progress</option>
-                                        <option value="DELIVERED">Delivered</option>
-                                        <option value="CONFIRMED">Confirmed / Closed</option>
+                                        <option value="CONFIRMED">Confirmed / Completed</option>
                                     </select>
                                 </div>
 
@@ -360,42 +459,12 @@ export default function Dashboard() {
                                         <option value="TOWN_BUS_STAND">Bus Stand</option>
                                     </select>
                                 </div>
-
-                                <div className="pt-1">
-                                    <label className="flex items-center space-x-2 text-xs text-slate-700 cursor-pointer p-2 hover:bg-slate-50 rounded-xl transition border border-transparent hover:border-slate-200">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={emergencyFilter} 
-                                            onChange={e => setEmergencyFilter(e.target.checked)} 
-                                            className="rounded text-rose-600 focus:ring-rose-500 w-4 h-4" 
-                                        />
-                                        <span className="font-semibold text-rose-700">🚨 Urgent Requests Only</span>
-                                    </label>
-                                </div>
                             </div>
                         </div>
                     </div>
 
                     {/* RIGHT FEED (Requests Grid) */}
                     <div className="lg:col-span-3">
-                        <div className="flex items-center justify-between mb-4 bg-white px-4 py-3 rounded-2xl shadow-sm border border-slate-200/80">
-                            <div className="flex items-center gap-2">
-                                <h2 className="text-base font-bold text-slate-900">Live Deliveries</h2>
-                                <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full">
-                                    {filteredRequests.length} available
-                                </span>
-                            </div>
-                            <button 
-                                onClick={fetchRequests} 
-                                className="text-xs font-semibold text-slate-500 hover:text-indigo-600 flex items-center gap-1.5 transition"
-                            >
-                                <svg className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                </svg>
-                                Refresh
-                            </button>
-                        </div>
-
                         {loading ? (
                             <div className="grid gap-4 md:grid-cols-2">
                                 {[1, 2, 3, 4].map(n => (
@@ -415,14 +484,18 @@ export default function Dashboard() {
                                 </div>
                                 <h3 className="text-base font-bold text-slate-900 mb-1">No requests found</h3>
                                 <p className="text-slate-500 text-sm max-w-sm">
-                                    There are currently no active requests matching your search or filters.
+                                    {activeTab === 'MY_REQUESTS' 
+                                        ? "You haven't posted any requests yet." 
+                                        : activeTab === 'URGENT' 
+                                        ? "No urgent emergencies open right now!"
+                                        : "There are no requests matching your filters."}
                                 </p>
                                 {user?.role === 'HOSTEL_STUDENT' && (
                                     <button 
                                         onClick={() => setShowForm(true)} 
                                         className="mt-4 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition"
                                     >
-                                        Post the first delivery request
+                                        Post a delivery request
                                     </button>
                                 )}
                             </div>
@@ -442,7 +515,7 @@ export default function Dashboard() {
                                             <div className="flex justify-between items-start mb-2.5">
                                                 <StatusBadge status={req.status} isEmergency={req.isEmergency} />
 
-                                                {user?.id === req.requester.id && req.status === 'OPEN' && (
+                                                {user?.id === req.requester?.id && req.status === 'OPEN' && (
                                                     <button 
                                                         onClick={(e) => handleDeleteRequest(e, req.id)}
                                                         className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded-lg transition-colors"
@@ -459,9 +532,25 @@ export default function Dashboard() {
                                             <h3 className="font-bold text-slate-900 text-base mb-1.5 group-hover:text-indigo-600 transition-colors line-clamp-1">
                                                 {req.title}
                                             </h3>
-                                            <p className="text-xs text-slate-600 line-clamp-2 mb-4 leading-relaxed flex-grow">
+                                            <p className="text-xs text-slate-600 line-clamp-2 mb-3 leading-relaxed flex-grow">
                                                 {req.description}
                                             </p>
+
+                                            {/* Price & Tip chips if provided */}
+                                            {(req.estimatedCost || req.tipAmount) && (
+                                                <div className="flex items-center gap-2 mb-3 text-xs">
+                                                    {req.estimatedCost && (
+                                                        <span className="bg-slate-100 text-slate-700 font-semibold px-2 py-0.5 rounded-md">
+                                                            Item: ~₹{req.estimatedCost}
+                                                        </span>
+                                                    )}
+                                                    {req.tipAmount && (
+                                                        <span className="bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-md border border-emerald-200">
+                                                            Tip: +₹{req.tipAmount}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
                                             
                                             {/* Requester details */}
                                             <div className="mb-3.5 text-xs text-slate-500 flex items-center gap-2">

@@ -90,6 +90,8 @@ public class RequestService {
                 .isEmergency(request.getIsEmergency())
                 .createdAt(request.getCreatedAt())
                 .deadlineAt(request.getDeadlineAt())
+                .estimatedCost(request.getEstimatedCost())
+                .tipAmount(request.getTipAmount())
                 .requester(requesterSummary)
                 .volunteer(volunteerSummary)
                 .acceptedAt(acceptedAt)
